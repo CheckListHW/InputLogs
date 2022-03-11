@@ -12,9 +12,9 @@ class InputLogController:
     def __init__(self, controllers: [PlotController]):
         self.controllers = controllers
 
-    def draw_all(self, map: Map):
+    def draw_all(self, data_map: Map):
         for controller in self.controllers:
-            controller.re_draw(map)
+            controller.re_draw(data_map)
 
 
 class InputLogView(QMainWindow):
@@ -23,6 +23,7 @@ class InputLogView(QMainWindow):
         uic.loadUi(environ['project'] + '/ui/log_input_form.ui', self)
         self.data_map = Map()
         self.data_map.load_map('C:/Users/KosachevIV/PycharmProjects/InputLogs/data_files/lay_name30.json')
+        self.data_map.load_curves('C:/Users/KosachevIV/PycharmProjects/InputLogs/data_files/test.xlsx')
 
         self.map_controller = PlotMapController(self.mapPlotWidget)
         self.map_controller.on_choose_column_observer.append(self.redraw_bar_and_log)
@@ -50,9 +51,12 @@ class InputLogView(QMainWindow):
         print('start')
 
     def open_file(self):
-        file = FileEdit(self)
-        file_path = file.open_file()
-        self.data_map.load_map(file_path)
+        path = FileEdit(self).open_file()
+        self.data_map.load_map(path)
+
+    def choose_log(self):
+        path = FileEdit(self).open_file('xlsx')
+        print(path)
 
     def redraw(self):
         self.main_controller.draw_all(self.data_map)
@@ -61,14 +65,10 @@ class InputLogView(QMainWindow):
         self.bar_chart_controller.draw_bar(self.data_map, x, y)
         self.log_controller.draw_plot(self.data_map, x, y)
 
-    def choose_log(self):
-        print('choose_log')
-
     def choose_layer(self):
-        cb: QComboBox = self.chooseLayerComboBox
-        if cb.currentText() == 'All':
+        if self.chooseLayerComboBox.currentText() == 'All':
             self.data_map.visible_names = self.data_map.body_names
         else:
-            self.data_map.visible_names = cb.currentText()
+            self.data_map.visible_names = self.chooseLayerComboBox.currentText()
 
         self.redraw()

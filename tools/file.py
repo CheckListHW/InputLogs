@@ -20,8 +20,8 @@ class FileEdit:
             self.create_file()
         save_dict_as_json(data=data, filename=self.file_used)
 
-    def open_file(self):
-        self.file_used, _ = QFileDialog.getOpenFileName(self.parent, '', getcwd(), 'Json Files (*.json)')
+    def open_file(self, file_extension='json'):
+        self.file_used, _ = QFileDialog.getOpenFileName(self.parent, '', getcwd(), f'Json Files (*.{file_extension})')
         return self.file_used
 
     def create_file(self, message=None) -> Optional[str]:

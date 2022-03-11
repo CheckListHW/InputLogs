@@ -12,10 +12,14 @@ from matplotlib.ticker import MultipleLocator, AutoMinorLocator
 from Model.map import Map
 
 
-def draw_polygon(x, y, ax, size=1.0, color='brown'):
+def draw_polygon(x, y, ax, size=1.0, color=None):
     int_x, int_y = int(x), int(y)
-    ax.fill([int_x, int_x + size, int_x + size, int_x, int_x],
-            [int_y, int_y, int_y + size, int_y + size, int_y], color=color)
+    x1, y1 = [int_x, int_x + size, int_x + size, int_x, int_x], [int_y, int_y, int_y + size, int_y + size, int_y]
+    if color is None:
+        ax.fill(x1, y1)
+    else:
+        ax.fill(x1, y1, color=color)
+
 
 
 class ColorName:
@@ -49,9 +53,6 @@ class PlotController(FigureCanvasQTAgg):
 
         self.ax = self.figure.add_subplot()
 
-    def re_draw(self, data_map: Map):
-        self.draw()
-
     def plot_prepare(self, x: int, y: int):
         self.ax.set_xlim(0, x)
         self.ax.set_ylim(0, y)
@@ -60,6 +61,9 @@ class PlotController(FigureCanvasQTAgg):
         for artist in self.ax.get_lines() + self.ax.collections:
             artist.remove()
         self.ax.clear()
+
+    def re_draw(self, data_map: Map):
+        self.draw()
 
 
 class PlotMapController(PlotController):
@@ -88,23 +92,25 @@ class PlotMapController(PlotController):
 
     def on_click(self, event: MouseEvent):
         x, y = event.xdata, event.ydata
-        self.on_click_notify(x, y)
+        if x is not None and y is not None:
+            self.on_click_notify(x, y)
 
     def clear_plot(self):
         draw_polygon(0, 0, self.ax, 100, color='white')
         super(PlotMapController, self).clear_plot()
 
     def re_draw(self, data_map: Map):
+        self.draw_plot(data_map)
+        self.draw()
+
+    def draw_plot(self, data_map: Map):
         self.clear_plot()
         self.plot_prepare(data_map.max_x, data_map.max_y)
-        for x1 in range(data_map.max_x + 1):
-            for y1 in range(data_map.max_y + 1):
-                col = data_map.get_column(x1, y1)
-                for _, name in col:
-                    if name in data_map.visible_names:
-                        draw_polygon(x1, y1, ax=self.ax, size=1, color=self.colors.get_color(name))
-                        break
-        super(PlotMapController, self).re_draw(data_map)
+        for x1, y1 in [(x1, y1) for x1 in range(data_map.max_x + 1) for y1 in range(data_map.max_y + 1)]:
+            for _, name in data_map.get_column(x1, y1):
+                if name in data_map.visible_names:
+                    draw_polygon(x1, y1, ax=self.ax, size=1, color=self.colors.get_color(name))
+                    break
 
 
 class PlotBarController(PlotController):
@@ -112,19 +118,18 @@ class PlotBarController(PlotController):
         super(PlotBarController, self).__init__(parent=parent)
         self.x, self.y = 0, 0
 
-    def draw_bar(self, data_map: Map, x: float, y: float):
-        self.x, self.y = round(x), round(y)
-        self.re_draw(data_map)
-
     def re_draw(self, data_map: Map):
+        self.draw_bar(data_map, self.x, self.y)
+
+    def draw_bar(self, data_map: Map, x: float, y: float):
         self.clear_plot()
-        names = set(name for z, name in data_map.get_column(self.x, self.y))
-        print(self.x, self.y)
-        print(data_map.get_column(self.x, self.y))
-        for name in names:
-            for v in [z for z, data_name in data_map.get_column(self.x, self.y) if name == data_name]:
-                self.ax.bar(np.arange(1), 1, color=ColorName.get_color(name), bottom=v)
-        super(PlotBarController, self).re_draw(data_map)
+        self.x, self.y = round(x), round(y)
+        if x == 0 or True:
+            for name in set(name for z, name in data_map.get_column(self.x, self.y)):
+                color = ColorName.get_color(name)
+                for v in [z for z, data_name in data_map.get_column(self.x, self.y) if name == data_name]:
+                    self.ax.bar(np.arange(1), 1, color=color, bottom=v)
+        self.draw()
 
 
 class PlotLogController(PlotController):
@@ -132,11 +137,33 @@ class PlotLogController(PlotController):
         super(PlotLogController, self).__init__(parent=parent)
         self.x, self.y = 0, 0
 
-    def draw_plot(self, data_map: Map, x: float, y: float):
-        self.x, self.y = x, y
-        self.re_draw(data_map)
-
     def re_draw(self, data_map: Map):
-        self.clear_plot()
+        self.draw_plot(data_map, self.x, self.y)
+        self.draw()
 
+    def draw_plot(self, data_map: Map, x: float, y: float):
+        self.x, self.y = int(x), int(y)
+        if len(data_map.logs.keys()) < 1:
+            return
+
+        log_name = list(data_map.logs.keys())[0]
+        log = data_map.logs[log_name]
+
+        facias = []
+
+        for name in set(name for z, name in data_map.get_column(self.x, self.y)):
+            facias.append({name: data_map.get_interval_column(self.x, self.y, name)})
+            # z = [z for z, data_name in data_map.get_column(self.x, self.y) if name == data_name]
+            # z_start, z_pre = z[0]
+            # for z1 in z:
+            #     if z_pre <= z1-1:
+            #         z_start = z1
+            #     else:
+            #         facias.append({name: (z_start, z_pre)})
+            #         z_pre, z_start = z1
+            #     # facias[name] = [z for z, data_name in data_map.get_column(self.x, self.y) if name == data_name]
+
+        print(facias)
+
+        self.ax.plot(log, range(len(log)))
         self.draw()
