@@ -4,12 +4,16 @@ from tools.dict_from_json import dict_from_json
 
 
 class Map:
-    __slots__ = 'columns', 'body_names', 'interval_data'
+    __slots__ = 'columns', 'body_names', 'visible_names', 'interval_data', 'max_x', 'max_y'
 
-    def __init__(self):
+    def __init__(self, path: str = None):
         self.columns = {}
         self.interval_data = {}
-        self.body_names = []
+        self.visible_names = self.body_names = []
+        self.max_x = 0
+        self.max_y = 0
+        if path:
+            self.load_map(path)
 
     def load_map(self, path: str):
         self.interval_data = data = dict_from_json(path)
@@ -19,7 +23,12 @@ class Map:
                 for y in data[body_name][x]:
                     for s_e in data[body_name][x][y]:
                         for z in range(s_e['s'], s_e['e'] + 1):
-                            self.add_dot(int(x), int(y), int(z), body_name)
+                            x1, y1 = int(x), int(y)
+                            self.max_x = x1 if self.max_x < x1 else self.max_x
+                            self.max_y = y1 if self.max_y < y1 else self.max_y
+                            self.add_dot(x1, y1, int(z), body_name)
+
+        self.visible_names = self.body_names.copy()
 
     def get_column(self, x: int, y: int) -> [(int, str)]:
         if not self.columns.get(x):
