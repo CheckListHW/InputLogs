@@ -1,9 +1,47 @@
+import json
+import os
+import random
 from os import getcwd
+from os.path import isfile
 from typing import Final, Optional
 
+import pandas as pd
 from PyQt5.QtWidgets import QMainWindow, QFileDialog, QInputDialog
 
-from tools.filedialog import save_dict_as_json
+
+def dict_from_json(filename: str) -> dict:
+    if isfile(filename):
+        with open(filename) as f:
+            return json.load(f)
+    else:
+        return {}
+
+
+def mass_from_xlsx(path: str) -> dict:
+    logs = {}
+    xl = pd.ExcelFile(path)
+    df = xl.parse(xl.sheet_names[0])
+    for name in df.keys():
+        logs[name] = list(df[name].values)
+    return logs
+
+
+def save_dict_as_json(data: dict, path: str = os.getcwd()+'/data/', filename: str = 'lay_name' + str(random.randint(1, 1000))):
+    if path.__contains__('.json'):
+        path_save = path
+    elif filename.__contains__('.json'):
+        path_save = filename
+    else:
+        path_save = path + '/lay_name.json'.replace('lay_name', filename)
+    path_save.replace('//', '/')
+
+    try:
+        json_file = open(path_save, mode='x')
+    except FileExistsError:
+        json_file = open(path_save, mode='w')
+    json.dump(data, json_file)
+    json_file.close()
+    return path_save
 
 
 class FileEdit:

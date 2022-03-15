@@ -1,5 +1,6 @@
 import math
 import random
+from typing import Optional
 
 import numpy as np
 from PyQt5.QtWidgets import QWidget, QGridLayout
@@ -8,7 +9,9 @@ from matplotlib.backends.backend_qt import NavigationToolbar2QT
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from matplotlib.ticker import MultipleLocator, AutoMinorLocator
+from scipy.interpolate import CubicSpline
 
+from tools.gisaug.augmentations import Stretch, Augmentation, DropRandomPoints
 from Model.map import Map
 
 
@@ -21,9 +24,8 @@ def draw_polygon(x, y, ax, size=1.0, color=None):
         ax.fill(x1, y1, color=color)
 
 
-
 class ColorName:
-    colors = ['blue', 'yellow', 'black', 'brown', 'green']
+    colors = ['blue', 'black', 'brown', 'green', 'yellow']
     data_name_colors = {}  # Name: color
 
     @staticmethod
@@ -53,9 +55,11 @@ class PlotController(FigureCanvasQTAgg):
 
         self.ax = self.figure.add_subplot()
 
-    def plot_prepare(self, x: int, y: int):
-        self.ax.set_xlim(0, x)
-        self.ax.set_ylim(0, y)
+    def plot_prepare(self, x: Optional[int], y: Optional[int]):
+        if x is not None:
+            self.ax.set_xlim(0, x)
+        if y is not None:
+            self.ax.set_ylim(0, y)
 
     def clear_plot(self):
         for artist in self.ax.get_lines() + self.ax.collections:
@@ -122,48 +126,116 @@ class PlotBarController(PlotController):
         self.draw_bar(data_map, self.x, self.y)
 
     def draw_bar(self, data_map: Map, x: float, y: float):
+        return
         self.clear_plot()
+        self.plot_prepare(None, data_map.max_z)
         self.x, self.y = round(x), round(y)
         if x == 0 or True:
             for name in set(name for z, name in data_map.get_column(self.x, self.y)):
                 color = ColorName.get_color(name)
                 for v in [z for z, data_name in data_map.get_column(self.x, self.y) if name == data_name]:
                     self.ax.bar(np.arange(1), 1, color=color, bottom=v)
+
         self.draw()
+
+
+def get_random_logs(names: [str], target_name=None) -> [str]:
+    names_struct = {}
+    for name in names:
+        main_name = name[:name.index('.')] if name.__contains__('.') else name
+        names_struct[main_name] = [] if names_struct.get(main_name) is None else names_struct[main_name]
+        names_struct[main_name].append(name)
+
+    if target_name is None:
+        return [random.choice(sub_names) for sub_names in names_struct.values()]
+    return [random.choice(sub_names) for key, sub_names in names_struct.items() if key == target_name]
 
 
 class PlotLogController(PlotController):
     def __init__(self, parent):
         super(PlotLogController, self).__init__(parent=parent)
+        self.mainLayout.addWidget(NavigationToolbar2QT(self, parent))
         self.x, self.y = 0, 0
 
     def re_draw(self, data_map: Map):
-        self.draw_plot(data_map, self.x, self.y)
-        self.draw()
+        self.draw_log(data_map, self.x, self.y)
 
-    def draw_plot(self, data_map: Map, x: float, y: float):
+    def draw_log(self, data_map: Map, x: float, y: float):
+        self.clear_plot()
+        self.plot_prepare(None, data_map.max_z)
         self.x, self.y = int(x), int(y)
-        if len(data_map.logs.keys()) < 1:
+        if not len(data_map.logs.keys()):
             return
 
-        log_name = list(data_map.logs.keys())[0]
-        log = data_map.logs[log_name]
-
-        facias = []
+        layer, columns = [], []
 
         for name in set(name for z, name in data_map.get_column(self.x, self.y)):
-            facias.append({name: data_map.get_interval_column(self.x, self.y, name)})
-            # z = [z for z, data_name in data_map.get_column(self.x, self.y) if name == data_name]
-            # z_start, z_pre = z[0]
-            # for z1 in z:
-            #     if z_pre <= z1-1:
-            #         z_start = z1
-            #     else:
-            #         facias.append({name: (z_start, z_pre)})
-            #         z_pre, z_start = z1
-            #     # facias[name] = [z for z, data_name in data_map.get_column(self.x, self.y) if name == data_name]
+            for column in data_map.get_interval_column(self.x, self.y, name):
+                columns.append((name, column))
+        sort_columns = sorted(columns, key=lambda i: i[1]['s'])
 
-        print(facias)
+        col_interval = []
 
-        self.ax.plot(log, range(len(log)))
+        for name, column in sort_columns:
+            if not len(data_map.logs[name]):
+                continue
+            log = sorted(data_map.logs[name], key=lambda i: i.main, reverse=True)[0]
+            target_log_name = get_random_logs([log.name for log in data_map.logs[name]], log.name)[0]
+            log = [log for log in data_map.logs[name] if log.name == target_log_name][0]
+
+            color = ColorName.get_color(name)
+            interval = range(int(column['s']), int(column['e']) + 1)
+            if len(interval) > 1:
+                line = Stretch.stretch_curve_by_point_count(np.array(log.x), len(interval))
+                curve = DropRandomPoints(0.95)(np.array(line))
+                curve = Stretch.stretch_curve_by_point_count(curve, len(interval))
+
+                layer.append({name: (curve, interval)})
+                if len(sort_columns) == 1:
+                    self.ax.plot(curve, interval, color=color)
+                self.ax.bar(np.arange(1), len(interval), bottom=int(column['s']), color=color)
+                col_interval.append((curve, name, interval))
+
+        col = col_interval[0]
+        endd = 0
+        for i in range(1, len(col_interval)):
+            min_len = min(len(col[2]), len(col_interval[i][2]))
+            curve_use_per = 0.3
+            start, end = len(col[2]) - int(min_len * curve_use_per), int(min_len * curve_use_per)
+
+            self.ax.plot(col[0][endd:start], col[2][endd:start], color=ColorName.get_color(col[1]))
+            endd = start
+            self.ax.plot(col_interval[i][0][end:start], col_interval[i][2][end:start], color=ColorName.get_color(col_interval[i][1]))
+            print(col[2][:start], col_interval[i][2][end:])
+
+            y1, y2 = list(col[0][start:]), list(col_interval[i][0][:end])
+
+
+            y1min, y2min, y1max, y2max = min(y1), min(y2), max(y1), max(y2)
+            drop_point_per = 0.1 * (max(y1max, y2max) - min(y1min, y2min)) / max(y1max - y1min, y2max - y2min)
+            save_point_per = 1 - drop_point_per if drop_point_per < 0.5 else 0.5
+            y_a, y_b = list(Stretch.stretch_curve(y1, save_point_per)), list(Stretch.stretch_curve(y2, save_point_per))
+
+            average, start_value = y_b[0] - y_a[-1], y_a[-1]
+            len_dist = len(y1 + y2) - len(y_a + y_b) + 1
+
+            step: () = lambda ind, l: average * ((random.random() / 2) * (1 - ind / l) + ind / l)
+            middle = [start_value + step(ind, len_dist) for ind in range(1, len_dist)]
+            y = y_a + middle + y_b
+
+            offset_value = int(len(y) / 2)
+            y_a = y[0:offset_value]
+            y_b = y[offset_value:-1]
+
+
+            # y = Stretch.stretch_curve_by_point_count(y_a, len(col[2][:start]))
+            # self.ax.plot(y, col[2][:start], color=ColorName.get_color(col[1]))
+            #
+            # y = Stretch.stretch_curve_by_point_count(y_b, len(col_interval[i][2][:end]))
+            # self.ax.plot(y, range(max(col[2])+1, end_interval), color=ColorName.get_color(col_interval[i][1]))
+
+
+
+            col = col_interval[i]
+
         self.draw()
