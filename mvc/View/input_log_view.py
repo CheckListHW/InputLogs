@@ -1,13 +1,12 @@
 from os import environ
 
 from PyQt5 import uic
-from PyQt5.QtWidgets import QMainWindow, QComboBox
+from PyQt5.QtWidgets import QMainWindow
 
-from Model.log_curves import Log
-from Model.map import Map
-from Controller.plot_controller import PlotController, PlotMapController, PlotBarController, PlotLogController
-from View.choose_log_view import ChooseLog
-from tools.file import FileEdit
+from mvc.Controller.plot_controller import PlotController, PlotMapController, PlotLogController
+from mvc.Model.map import Map
+from mvc.View.choose_log_view import ChooseLog
+from utils.file import FileEdit
 
 
 class InputLogController:
@@ -25,23 +24,22 @@ class InputLogView(QMainWindow):
         uic.loadUi(environ['project'] + '/ui/log_input_form.ui', self)
         self.data_map = Map()
         self.data_map.load_map('C:/Users/KosachevIV/PycharmProjects/InputLogs/data_files/lay_name30.json')
-        # self.data_map.load_curves('C:/Users/KosachevIV/PycharmProjects/InputLogs/data_files/test.xlsx')
 
         self.map_controller = PlotMapController(self.mapPlotWidget)
-        self.map_controller.on_choose_column_observer.append(self.redraw_bar_and_log)
-        self.bar_chart_controller = PlotBarController(self.barChartPlotWidget)
+        self.map_controller.on_choose_column_observer.append(self.redraw_and_log)
         self.log_controller = PlotLogController(self.logPlotWidget)
-        self.main_controller = InputLogController(
-            [self.map_controller, self.bar_chart_controller, self.log_controller])
+        self.main_controller = InputLogController([self.map_controller, self.log_controller])
 
         self.handlers()
         self.redraw()
         self.update_info()
 
     def update_info(self):
+        self.chooseLayerComboBox.clear()
         self.chooseLayerComboBox.addItem('All')
         for name in self.data_map.body_names:
             self.chooseLayerComboBox.addItem(name)
+        self.redraw()
 
     def handlers(self):
         self.openFileAction.triggered.connect(self.open_file)
@@ -59,6 +57,7 @@ class InputLogView(QMainWindow):
     def open_file(self):
         path = FileEdit(self).open_file()
         self.data_map.load_map(path)
+        self.update_info()
 
     def choose_log(self):
         self.window = ChooseLog(self.chooseLayerComboBox.currentText(), self.data_map)
@@ -67,8 +66,7 @@ class InputLogView(QMainWindow):
     def redraw(self):
         self.main_controller.draw_all(self.data_map)
 
-    def redraw_bar_and_log(self, x: float, y: float):
-        self.bar_chart_controller.draw_bar(self.data_map, x, y)
+    def redraw_and_log(self, x: float, y: float):
         self.log_controller.draw_log(self.data_map, x, y)
 
     def choose_layer(self):

@@ -4,7 +4,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 
 from .validations import is_valid_coefficient, is_valid_probability, are_valid_bounds, are_valid_probability_bounds, \
-                         is_valid_positive_integer
+    is_valid_positive_integer
 from .utils import numbers_array_to_string
 
 
@@ -67,6 +67,7 @@ class DropRandomPoints(Augmentation):
         to the original curve length. If tuple of two numbers is provided (e.g. (`a`, `b`)), the proportion will
         be chosen randomly and uniformly between `a` and `b` on each run.
     """
+
     def __init__(self, p: Union[float, tuple]):
         self.p = p
 
@@ -132,7 +133,8 @@ class Stretch(Augmentation):
     @staticmethod
     def stretch_curve(x: np.array, stretching_coef: float) -> np.array:
         """Stretch `x` so that it's size will be `len(x) * stretching_coef`"""
-
+        if len(x) <= 2 :
+            return x
         scope = np.arange(len(x))
         f = interp1d(scope, x)
 
@@ -142,9 +144,10 @@ class Stretch(Augmentation):
         return interpolated_array
 
     @staticmethod
-    def stretch_curve_by_point_count(x: np.array, point_count: int) -> np.array:
+    def stretch_curve_by_count(x: np.array, point_count: int) -> np.array:
         """Stretch `x` so that it's size will be `len(x) * stretching_coef`"""
-
+        if len(x) <= 2 or len(x) == point_count:
+            return x
         scope = np.arange(len(x))
         f = interp1d(scope, x)
 
@@ -220,6 +223,7 @@ class DropRandomRegions(Augmentation):
         half of the new curve will be dropped. Generally, augmented curve length is proportional to p^k of the
         original curve length.
     """
+
     @staticmethod
     def remove_region(x: np.array, region_start: int, region_end: int) -> np.array:
         """Remove region from `region_start` to `region_end` from `x`"""
@@ -343,6 +347,7 @@ class ChangeAmplitude(Augmentation):
         Minimum and maximum possible value of the curve amplitude. E.g., if clip=(0, 1), the amplitude of the augmented
         curve will be clipped between 0 and 1.
     """
+
     @staticmethod
     def change_region_amplitude(
             x: np.array, coef: float, from_: int = 0, to: Optional[int] = None, clip: Optional[tuple] = None
@@ -382,8 +387,8 @@ class ChangeAmplitude(Augmentation):
         return new_array
 
     def __init__(
-           self, c: Union[float, Sized], k: Union[int, Sized], region_start_fraction: Union[float, Sized] = 0,
-           region_end_fraction: Optional[Union[float, Sized]] = None, clip: Optional[tuple] = None
+            self, c: Union[float, Sized], k: Union[int, Sized], region_start_fraction: Union[float, Sized] = 0,
+            region_end_fraction: Optional[Union[float, Sized]] = None, clip: Optional[tuple] = None
     ):
         self.c = c
         self.k = k

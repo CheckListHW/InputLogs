@@ -2,12 +2,11 @@ from functools import partial
 from os import environ
 
 from PyQt5 import uic
-from PyQt5.QtWidgets import QMainWindow, QPushButton, QLabel, QHBoxLayout, QFrame, QRadioButton, QButtonGroup, \
-    QSpacerItem, QSizePolicy
+from PyQt5.QtWidgets import QMainWindow, QPushButton, QLabel, QHBoxLayout, QFrame, QRadioButton, QButtonGroup
 
-from Model.log_curves import Log
-from Model.map import Map
-from tools.file import FileEdit, mass_from_xlsx
+from mvc.Model.log_curves import Log
+from mvc.Model.map import Map
+from utils.file import FileEdit, mass_from_xlsx
 
 
 class ChooseLog(QMainWindow):
@@ -51,9 +50,8 @@ class ChooseLog(QMainWindow):
 
             main_radio = QRadioButton()
             main_radio.clicked.connect(partial(self.change_main, logs, log))
-            print(log.name, log.name.__contains__('.'))
-            if log.name.__contains__('.'):
-                main_radio.setEnabled(False)
+
+            main_radio.setEnabled(not log.name.__contains__('.'))
             radio_group.addButton(main_radio)
 
             x.addWidget(main_radio)

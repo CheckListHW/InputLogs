@@ -2,11 +2,7 @@ import os
 import sys
 from traceback import format_exception
 
-import numpy as np
-from matplotlib import pyplot as plt
-
-from Model.map import Map
-from View.input_log_view import InputLogView
+from mvc.View.input_log_view import InputLogView
 from PyQt5.QtWidgets import QApplication
 
 os.environ['project'] = os.getcwd()

@@ -62,6 +62,8 @@ class FileEdit:
         self.file_used, _ = QFileDialog.getOpenFileName(self.parent, '', getcwd(), f'Json Files (*.{file_extension})')
         return self.file_used
 
+
+
     def create_file(self, message=None) -> Optional[str]:
         if not message:
             message = self.create_file_default

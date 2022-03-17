@@ -1,6 +1,6 @@
 import numpy as np
 
-from tools.json_in_out import JsonInOut
+from utils.json_in_out import JsonInOut
 
 
 class Log(JsonInOut):
