@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import QMainWindow
 from mvc.Controller.plot_controller import PlotController, PlotMapController, PlotLogController
 from mvc.Model.map import Map
 from mvc.View.choose_log_view import ChooseLog
-from utils.file import FileEdit
+from utils.file import FileEdit, dict_from_json
 
 
 class InputLogController:
@@ -22,8 +22,9 @@ class InputLogView(QMainWindow):
     def __init__(self):
         super(InputLogView, self).__init__()
         uic.loadUi(environ['project'] + '/ui/log_input_form.ui', self)
+        self.file_edit = FileEdit(parent=self)
         self.data_map = Map()
-        self.data_map.load_map('C:/Users/KosachevIV/PycharmProjects/InputLogs/data_files/lay_name30.json')
+        self.debug()
 
         self.map_controller = PlotMapController(self.mapPlotWidget)
         self.map_controller.on_choose_column_observer.append(self.redraw_and_log)
@@ -34,6 +35,10 @@ class InputLogView(QMainWindow):
         self.redraw()
         self.update_info()
 
+    def debug(self):
+        self.data_map.load_map('C:/Users/KosachevIV/PycharmProjects/InputLogs/base.json')
+        self.file_edit.file_used = 'C:/Users/KosachevIV/PycharmProjects/InputLogs/base.json'
+
     def update_info(self):
         self.chooseLayerComboBox.clear()
         self.chooseLayerComboBox.addItem('All')
@@ -43,19 +48,23 @@ class InputLogView(QMainWindow):
 
     def handlers(self):
         self.openFileAction.triggered.connect(self.open_file)
+        self.saveFileAction.triggered.connect(self.save_file)
+
         self.chooseLayerComboBox.activated.connect(self.choose_layer)
         self.chooseLogButton.clicked.connect(self.choose_log)
         self.startButton.clicked.connect(self.start)
-        self.saveButton.clicked.connect(self.save_file)
+        # self.saveButton.clicked.connect(self.save_file)
 
     def save_file(self):
-        self.data_map.save()
+        d: dict = dict_from_json(self.file_edit.file_used)
+        d.update(self.data_map.save())
+        self.file_edit.save_file(d)
 
     def start(self):
         print('start')
 
     def open_file(self):
-        path = FileEdit(self).open_file()
+        path = self.file_edit.open_file()
         self.data_map.load_map(path)
         self.update_info()
 

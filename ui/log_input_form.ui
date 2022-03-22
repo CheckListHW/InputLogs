@@ -131,6 +131,7 @@
      <string>Файлы</string>
     </property>
     <addaction name="openFileAction"/>
+    <addaction name="saveFileAction"/>
    </widget>
    <addaction name="menu"/>
   </widget>
@@ -138,6 +139,11 @@
   <action name="openFileAction">
    <property name="text">
     <string>Открыть</string>
+   </property>
+  </action>
+  <action name="saveFileAction">
+   <property name="text">
+    <string>Сохранить</string>
    </property>
   </action>
  </widget>

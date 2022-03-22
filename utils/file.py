@@ -26,7 +26,8 @@ def mass_from_xlsx(path: str) -> dict:
     return logs
 
 
-def save_dict_as_json(data: dict, path: str = os.getcwd()+'/data/', filename: str = 'lay_name' + str(random.randint(1, 1000))):
+def save_dict_as_json(data: dict, path: str = os.getcwd() + '/data_files/',
+                      filename: str = 'lay_name' + str(random.randint(1, 1000))):
     if path.__contains__('.json'):
         path_save = path
     elif filename.__contains__('.json'):
@@ -61,8 +62,6 @@ class FileEdit:
     def open_file(self, file_extension='json'):
         self.file_used, _ = QFileDialog.getOpenFileName(self.parent, '', getcwd(), f'Json Files (*.{file_extension})')
         return self.file_used
-
-
 
     def create_file(self, message=None) -> Optional[str]:
         if not message:

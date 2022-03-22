@@ -1,7 +1,10 @@
 from typing import Union
 
+import numpy as np
+from scipy.interpolate import interp1d
+
 from mvc.Model.log_curves import Log
-from utils.file import dict_from_json, save_dict_as_json
+from utils.file import dict_from_json, save_dict_as_json, FileEdit
 
 
 class Map:
@@ -21,8 +24,23 @@ class Map:
     def load_map(self, path: str):
         self.__init__(path)
 
-    def __load_map(self, path):
-        data = dict_from_json(path)
+    def get_logs(self, name: str) -> []:
+        logs = self.logs.get(name)
+        return [] if logs is None else logs
+
+    def add_logs(self, name: str, log: Log):
+        logs = self.logs.get(name)
+        if logs is None:
+            self.logs[name] = []
+        remove_dot: () = lambda i: (i + '.')[:(i + '.').index('.')]
+        name_len = len(list(filter(lambda i: remove_dot(i.name) == remove_dot(log.name), self.logs[name])))
+        if name_len >= 1:
+            log.name = remove_dot(log.name) + f'.{name_len}'
+            log.main = False
+        self.logs[name].append(log)
+
+    def __load_map(self, path: str):
+        self.interval_data = data = dict_from_json(path)
         for body_name in data:
             if body_name == 'logs':
                 for name_body, logs in data['logs'].items():
@@ -64,5 +82,4 @@ class Map:
             self.interval_data['logs'][name] = []
             for log in logs:
                 self.interval_data['logs'][name].append(log.get_as_dict())
-
-        save_dict_as_json(self.interval_data)
+        return self.interval_data
