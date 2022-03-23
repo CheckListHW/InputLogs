@@ -35,7 +35,7 @@ class ChooseLog(QMainWindow):
         self.update()
 
     def delete_log(self, i: int):
-        self.data_map.logs[self.master_name].pop(i)
+        self.data_map.pop_logs(self.master_name, i)
         self.update()
 
     def change_main(self, logs: [Log], log: Log):

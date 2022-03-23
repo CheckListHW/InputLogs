@@ -157,6 +157,16 @@ class PlotLogController(PlotController):
     def re_draw(self, data_map: Map):
         self.draw_log(data_map, self.x, self.y)
 
+    def sorted_columns(self, data_map: Map) -> []:
+        columns = []
+        data_columns = data_map.get_column(self.x, self.y)
+
+        for name in set(name for _, name in data_columns):
+            for column in data_map.get_interval_column(self.x, self.y, name):
+                columns.append((name, column))
+
+        return sorted(columns, key=lambda i: i[1]['s'])
+
     def draw_log(self, data_map: Map, x: float, y: float):
         self.clear_plot()
         self.plot_prepare(None, data_map.max_z)
@@ -165,18 +175,9 @@ class PlotLogController(PlotController):
         if not len(data_map.logs.keys()):
             return
 
-        columns = []
-
-        for name in set(name for z, name in data_map.get_column(self.x, self.y)):
-            for column in data_map.get_interval_column(self.x, self.y, name):
-                columns.append((name, column))
-
-        sort_columns = sorted(columns, key=lambda i: i[1]['s'])
-
         col_interval, layer = [], []
-
         min_axes_x, max_axes_x = 9999, -9999
-        for name, column in sort_columns:
+        for name, column in self.sorted_columns(data_map):
             if not len(data_map.get_logs(name)):
                 continue
 
@@ -215,7 +216,8 @@ class PlotLogController(PlotController):
 
         for x, name, y in col_interval:
             max_y, min_y, color = max(y), min(y), ColorName.get_color(name)
-            draw_bar(self.ax, min_axes_x, max_axes_x, size_x=max_axes_x - min_axes_x, size_y=max_y - min_y, color=color, alpha=0.2)
+            draw_bar(self.ax, min_axes_x, min_y, size_x=max_axes_x - min_axes_x, size_y=max_y - min_y, color=color,
+                     alpha=0.2)
 
         self.ax.set_xlim(min_axes_x, max_axes_x)
         self.ax.invert_yaxis()

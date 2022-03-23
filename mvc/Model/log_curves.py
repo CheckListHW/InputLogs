@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.interpolate import interp1d
 
-from resourses.limits import MAX_TREND_RATIO
 from utils.ceil import ceil
 from utils.json_in_out import JsonInOut
 
@@ -15,7 +14,7 @@ class Log(JsonInOut):
         self.name = ''
         self.master_name = ''
         self.main = True
-        self._trend: [(float, float)] = {0: 0, 1: 0}
+        self._trend: {str: float} = {'0': 0, '1': 0}
         self._x = []
         self.dispersion = 0.85
 
@@ -34,7 +33,11 @@ class Log(JsonInOut):
         return [float(i) for i in self._trend.values()], [float(i) for i in self._trend.keys()]
 
     def f_trend_init(self):
-        trend_data = [(float(x1), float(y1)) for y1, x1 in self._trend.items()]
+        try:
+            trend_data = [(float(x1), float(y1)) for y1, x1 in self._trend.items()]
+        except:
+            print(self._trend)
+            breakpoint()
         if len(trend_data) > 2:
             x, y = [y for _, y in trend_data], [x for x, _ in trend_data]
             return interp1d(x, y, kind='quadratic')
@@ -85,29 +88,25 @@ class Log(JsonInOut):
     def x(self):
         if self._x:
             return self._x
+        # elif len(self._trend) > 1:
+        #     return self.trend_x()
+        else:
+            return self.trend_x()
+            # return [0 for _ in range(500)]
 
-        a, b, tr, avg, des = self.min, self.max, [x for x, _ in self.trend], (self.max + self.min)/2, self.dispersion
-        max_trend, min_trend = max(tr), min(tr)
-        spacing = abs(max_trend) + abs(min_trend)
-        center = 0 if spacing == 0 else (avg - avg / (spacing + 1))
-
+    def trend_x(self):
+        a, b, avg, des = self.min, self.max, (self.max + self.min) / 2, self.dispersion
 
         f_trend = self.f_trend_init()
         f_rand: () = lambda v: np.random.uniform(a + (v - a) * des, b - (b - v) * des)
         f_offset: () = lambda i, y1: y1 + avg * ceil(f_trend(i))
+        f_y_limit: () = lambda y: y if a <= y <= b else f_y_limit(a + a - y) if a > y else f_y_limit(b - (y - b))
 
-        y = [avg]
-        print(y[-1], avg, f_trend(0))
-
-        for _ in range(500):
+        y, len_y = [avg], 500
+        for _ in range(len_y - 1):
             y.append(f_rand(y[-1]))
 
-        y = [y1 / (1 + spacing) + center for y1 in y]
-
-        len_y = len(y)
-        y = [f_offset(i / len_y, y1) for i, y1 in zip(range(len_y), y)]
-        print(max(y))
-        return y# [i for i in y if a < i < b]
+        return [f_y_limit(f_offset(i / len_y, y1)) for i, y1 in zip(range(len_y), y)]
 
     @x.setter
     def x(self, value):
