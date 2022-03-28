@@ -6,17 +6,19 @@ from utils.json_in_out import JsonInOut
 
 
 class Log(JsonInOut):
-    __slots__ = '_min', '_max', 'name', 'master_name', 'main', '_x', '_trend', 'f_trend', 'dispersion'
+    __slots__ = '_min', '_max', 'name', 'main', '_x', '_trend', 'f_trend', 'dispersion'
 
-    def __init__(self, **kwargs):
+    def __init__(self, data_dict: dict = None, **kwargs):
         self._min = None
         self._max = None
         self.name = ''
-        self.master_name = ''
         self.main = True
         self._trend: {str: float} = {'0': 0, '1': 0}
         self._x = []
         self.dispersion = 0.85
+
+        if data_dict:
+            self.load_from_dict(data_dict)
 
         for k, v in kwargs.items():
             if hasattr(self, k):
@@ -33,11 +35,7 @@ class Log(JsonInOut):
         return [float(i) for i in self._trend.values()], [float(i) for i in self._trend.keys()]
 
     def f_trend_init(self):
-        try:
-            trend_data = [(float(x1), float(y1)) for y1, x1 in self._trend.items()]
-        except:
-            print(self._trend)
-            breakpoint()
+        trend_data = [(float(x1), float(y1)) for y1, x1 in self._trend.items()]
         if len(trend_data) > 2:
             x, y = [y for _, y in trend_data], [x for x, _ in trend_data]
             return interp1d(x, y, kind='quadratic')
@@ -54,13 +52,14 @@ class Log(JsonInOut):
             return
         x, y = point
 
-        keys = set(self._trend.keys()).symmetric_difference({'0', '1'})
+        keys = set(self._trend.keys()) - {'0', '1'}
         nearst = [(y1, abs(y - float(y1))) for y1 in keys]
 
         self._trend.pop(min(nearst, key=lambda i: i[1])[0])
 
     def get_text(self) -> str:
-        return f'{self.name} (min = {self.min}, max = {self.max}, x = {True if self._x else False})'
+        return f'{self.name} (min = {self.min}, max = {self.max}) ' \
+               f'{".xlsx" if self._x else ""} {"⚡" if len(self._trend) > 2 else ""}'
 
     @property
     def min(self):
@@ -85,14 +84,18 @@ class Log(JsonInOut):
         self.__max_min_valid()
 
     @property
-    def x(self):
+    def x(self) -> [float]:
+
         if self._x:
             return self._x
-        # elif len(self._trend) > 1:
-        #     return self.trend_x()
-        else:
+        if self.max is not None and self.min is not None:
             return self.trend_x()
-            # return [0 for _ in range(500)]
+        else:
+            return [0 for _ in range(500)]
+
+    @x.setter
+    def x(self, value: [float]):
+        self._x = value
 
     def trend_x(self):
         a, b, avg, des = self.min, self.max, (self.max + self.min) / 2, self.dispersion

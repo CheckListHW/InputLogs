@@ -141,9 +141,13 @@ class PlotMapController(PlotController):
     def draw_plot(self, data_map: Map):
         self.clear_plot()
         self.plot_prepare(data_map.max_x, data_map.max_y)
+        visible_names = data_map.visible_names
+        names = []
         for x1, y1 in [(x1, y1) for x1 in range(data_map.max_x + 1) for y1 in range(data_map.max_y + 1)]:
-            for _, name in data_map.get_column(x1, y1):
-                if name in data_map.visible_names:
+            for col in data_map.get_column(x1, y1):
+                name = col['name']
+                names.append(name)
+                if name in visible_names:
                     draw_polygon(x1, y1, ax=self.ax, size=1, color=self.colors.get_color(name))
                     break
 
@@ -157,16 +161,6 @@ class PlotLogController(PlotController):
     def re_draw(self, data_map: Map):
         self.draw_log(data_map, self.x, self.y)
 
-    def sorted_columns(self, data_map: Map) -> []:
-        columns = []
-        data_columns = data_map.get_column(self.x, self.y)
-
-        for name in set(name for _, name in data_columns):
-            for column in data_map.get_interval_column(self.x, self.y, name):
-                columns.append((name, column))
-
-        return sorted(columns, key=lambda i: i[1]['s'])
-
     def draw_log(self, data_map: Map, x: float, y: float):
         self.clear_plot()
         self.plot_prepare(None, data_map.max_z)
@@ -177,16 +171,16 @@ class PlotLogController(PlotController):
 
         col_interval, layer = [], []
         min_axes_x, max_axes_x = 9999, -9999
-        for name, column in self.sorted_columns(data_map):
-            if not len(data_map.get_logs(name)):
+
+        sort_column = sorted(data_map.get_column(self.x, self.y), key=lambda i: i['s'])
+
+        for name, s, e in [i.values() for i in sort_column]:
+            log = data_map.get_one_log(name)
+            if not log:
                 continue
 
-            log_name = sorted(data_map.logs[name], key=lambda i: i.main)[-1].name
-            target_log_name = get_random_logs([log.name for log in data_map.logs[name]], log_name)[0]
-            log = [log for log in data_map.logs[name] if log.name == target_log_name][0]
             min_axes_x, max_axes_x = min(log.min, min_axes_x), max(max_axes_x, log.max)
-
-            interval = range(int(column['s']), int(column['e']) + 1)
+            interval = range(int(s), int(e) + 1)
             if len(interval) > 1:
                 curve = DropRandomPoints(0.95)(np.array(log.x))
                 curve = Stretch.stretch_curve_by_count(curve, len(interval))
@@ -222,18 +216,6 @@ class PlotLogController(PlotController):
         self.ax.set_xlim(min_axes_x, max_axes_x)
         self.ax.invert_yaxis()
         self.draw()
-
-
-def get_random_logs(names: [str], target_name=None) -> [str]:
-    names_struct = {}
-    for name in names:
-        main_name = name[:name.index('.')] if name.__contains__('.') else name
-        names_struct[main_name] = [] if names_struct.get(main_name) is None else names_struct[main_name]
-        names_struct[main_name].append(name)
-
-    if target_name is None:
-        return [random.choice(sub_names) for sub_names in names_struct.values()]
-    return [random.choice(sub_names) for key, sub_names in names_struct.items() if key == target_name]
 
 
 def realistic_transition(y1: [float], y2: [float]) -> ([float], [float]):

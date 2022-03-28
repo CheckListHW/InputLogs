@@ -1,11 +1,18 @@
+from functools import partial
 from os import environ
+from threading import Thread
+from time import sleep
 
 from PyQt5 import uic
+from PyQt5.QtGui import QCloseEvent
 from PyQt5.QtWidgets import QMainWindow
+from PyQt5.uic.properties import QtCore
 
 from mvc.Controller.plot_controller import PlotController, PlotMapController, PlotLogController
 from mvc.Model.map import Map
-from mvc.View.choose_log_view import ChooseLog
+from mvc.View.attach_log_view import AttachLogView
+from mvc.View.create_log_view import ChooseLog
+from mvc.View.owc_edit_view import OwcEditView
 from utils.file import FileEdit, dict_from_json
 
 
@@ -44,6 +51,11 @@ class InputLogView(QMainWindow):
         self.chooseLayerComboBox.addItem('All')
         for name in self.data_map.body_names:
             self.chooseLayerComboBox.addItem(name)
+
+        self.logSelectComboBox.clear()
+        for log_name in self.data_map.main_logs_name():
+            self.logSelectComboBox.addItem(log_name)
+
         self.redraw()
 
     def handlers(self):
@@ -51,14 +63,25 @@ class InputLogView(QMainWindow):
         self.saveFileAction.triggered.connect(self.save_file)
 
         self.chooseLayerComboBox.activated.connect(self.choose_layer)
-        self.chooseLogButton.clicked.connect(self.choose_log)
         self.startButton.clicked.connect(self.start)
+        self.chooseLogButton.clicked.connect(partial(self.open_window, ChooseLog))
+        self.owcButton.clicked.connect(partial(self.open_window, OwcEditView))
+        self.attachLogButton.clicked.connect(partial(self.open_window, AttachLogView))
+        self.logSelectComboBox.activated.connect(self.log_select)
         # self.saveButton.clicked.connect(self.save_file)
 
+    def log_select(self):
+        self.logSelectComboBox.currentText()
+
+    def open_window(self, window: QMainWindow.__class__):
+        if hasattr(self, 'sub_window'):
+            self.sub_window.close()
+            self.update_info()
+        self.sub_window = window(self.data_map)
+        self.sub_window.show()
+
     def save_file(self):
-        d: dict = dict_from_json(self.file_edit.file_used)
-        d.update(self.data_map.save())
-        self.file_edit.save_file(d)
+        self.file_edit.save_file(self.data_map.save())
 
     def start(self):
         print('start')
@@ -68,10 +91,6 @@ class InputLogView(QMainWindow):
         self.data_map.load_map(path)
         self.update_info()
 
-    def choose_log(self):
-        self.window = ChooseLog(self.chooseLayerComboBox.currentText(), self.data_map)
-        self.window.show()
-
     def redraw(self):
         self.main_controller.draw_all(self.data_map)
 
@@ -79,11 +98,7 @@ class InputLogView(QMainWindow):
         self.log_controller.draw_log(self.data_map, x, y)
 
     def choose_layer(self):
-        if self.chooseLayerComboBox.currentText() == 'All':
-            self.chooseLogButton.setEnabled(False)
-            self.data_map.visible_names = self.data_map.body_names
-        else:
-            self.chooseLogButton.setEnabled(True)
-            self.data_map.visible_names = self.chooseLayerComboBox.currentText()
+        select_layer = self.chooseLayerComboBox.currentText()
+        self.data_map.visible_names = self.data_map.body_names if select_layer == 'All' else [select_layer]
 
         self.redraw()
