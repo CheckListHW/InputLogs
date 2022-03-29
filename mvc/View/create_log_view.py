@@ -43,14 +43,12 @@ class ChooseLog(QMainWindow):
             self.oil_water_name = ''
 
     def open_trend_window(self, log: Log):
-        if self.trend_window:
+        if hasattr(self, 'trend_window'):
             self.trend_window.close()
+
         self.trend_window = TrendView(log)
         self.trend_window.show()
         self.trend_window.closeEvent = lambda _: self.update()
-
-    def name_valid(self, name: str) -> bool:
-        self.nameLineEdit.text()
 
     def add_log_interval(self):
         name, min_value, max_value = self.nameLineEdit.text(), self.minValueSpinBox.value(), self.maxValueSpinBox.value()

@@ -93,6 +93,14 @@ class Map:
         if self.owc.get(name):
             self.owc.pop(name)
 
+    def change_log_select(self, main_name: str):
+        print(main_name)
+        cut_to_main: () = lambda name: cut_along(cut_along(name, '.'), '|')
+        print([f'{log.name}: {log.main}' for log in self.all_logs])
+        print([setattr(log, 'main', True) for log in self.all_logs if cut_to_main(log.name) == main_name])
+        print([setattr(log, 'main', False) for log in self.all_logs if cut_to_main(log.name) != main_name])
+        print([f'{log.name}: {log.main}' for log in self.all_logs])
+
     def pop_logs(self, log_name: str):
         indexes = [i for i in range(len(self.all_logs)) if self.all_logs[i].name == log_name]
 
@@ -141,8 +149,6 @@ class Map:
         if x:
             s_logs = self.sub_logs(x[0])
             return s_logs[random.randint(0, len(s_logs) - 1)]
-        elif logs_name:
-            return logs_name[0]
         else:
             return None
 

@@ -205,13 +205,20 @@ class PlotLogController(PlotController):
             col_interval[i - 1] = (list(curve_p[:start]) + y_a, name_p, interval_p)
             col_pre = col_interval[i] = (y_b + list(curve_n[end:]), name_n, interval_n)
 
-        for x, name, y in col_interval:
-            self.ax.plot(x, y, color=ColorName.get_color(name))
+        x = [a for b in [x for x, _, _ in col_interval] for a in b]
+        y = [a for b in [y for _, _, y in col_interval] for a in b]
+        self.ax.plot(x, y, color='black')
 
+        pre_max_y = 0
         for x, name, y in col_interval:
             max_y, min_y, color = max(y), min(y), ColorName.get_color(name)
-            draw_bar(self.ax, min_axes_x, min_y, size_x=max_axes_x - min_axes_x, size_y=max_y - min_y, color=color,
-                     alpha=0.2)
+            connect_to_pre_interval = 1 if min_y > pre_max_y else 0
+
+            draw_bar(self.ax, min_axes_x, min_y - connect_to_pre_interval, size_x=max_axes_x - min_axes_x,
+                     size_y=max_y - min_y+connect_to_pre_interval, color=color, alpha=0.2)
+            pre_max_y = max_y
+
+        print()
 
         self.ax.set_xlim(min_axes_x, max_axes_x)
         self.ax.invert_yaxis()

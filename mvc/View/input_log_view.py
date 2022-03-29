@@ -1,19 +1,15 @@
 from functools import partial
 from os import environ
-from threading import Thread
-from time import sleep
 
 from PyQt5 import uic
-from PyQt5.QtGui import QCloseEvent
 from PyQt5.QtWidgets import QMainWindow
-from PyQt5.uic.properties import QtCore
 
 from mvc.Controller.plot_controller import PlotController, PlotMapController, PlotLogController
 from mvc.Model.map import Map
 from mvc.View.attach_log_view import AttachLogView
 from mvc.View.create_log_view import ChooseLog
 from mvc.View.owc_edit_view import OwcEditView
-from utils.file import FileEdit, dict_from_json
+from utils.file import FileEdit
 
 
 class InputLogController:
@@ -34,7 +30,7 @@ class InputLogView(QMainWindow):
         self.debug()
 
         self.map_controller = PlotMapController(self.mapPlotWidget)
-        self.map_controller.on_choose_column_observer.append(self.redraw_and_log)
+        self.map_controller.on_choose_column_observer.append(self.redraw_log)
         self.log_controller = PlotLogController(self.logPlotWidget)
         self.main_controller = InputLogController([self.map_controller, self.log_controller])
 
@@ -49,6 +45,7 @@ class InputLogView(QMainWindow):
     def update_info(self):
         self.chooseLayerComboBox.clear()
         self.chooseLayerComboBox.addItem('All')
+
         for name in self.data_map.body_names:
             self.chooseLayerComboBox.addItem(name)
 
@@ -71,7 +68,8 @@ class InputLogView(QMainWindow):
         # self.saveButton.clicked.connect(self.save_file)
 
     def log_select(self):
-        self.logSelectComboBox.currentText()
+        self.data_map.change_log_select(self.logSelectComboBox.currentText())
+        self.redraw()
 
     def open_window(self, window: QMainWindow.__class__):
         if hasattr(self, 'sub_window'):
@@ -94,7 +92,7 @@ class InputLogView(QMainWindow):
     def redraw(self):
         self.main_controller.draw_all(self.data_map)
 
-    def redraw_and_log(self, x: float, y: float):
+    def redraw_log(self, x: float, y: float):
         self.log_controller.draw_log(self.data_map, x, y)
 
     def choose_layer(self):
