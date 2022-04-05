@@ -1,13 +1,14 @@
 from functools import partial
 from os import environ
+from threading import Thread
 
 from PyQt5 import uic
-from PyQt5.QtWidgets import QMainWindow
+from PyQt5.QtWidgets import QMainWindow, QTextEdit
 
 from mvc.Controller.plot_controller import PlotController, PlotMapController, PlotLogController
 from mvc.Model.map import Map
 from mvc.View.attach_log_view import AttachLogView
-from mvc.View.create_log_view import ChooseLog
+from mvc.View.create_log_view import CreateLog
 from mvc.View.owc_edit_view import OwcEditView
 from utils.file import FileEdit
 
@@ -25,6 +26,7 @@ class InputLogView(QMainWindow):
     def __init__(self):
         super(InputLogView, self).__init__()
         uic.loadUi(environ['project'] + '/ui/log_input_form.ui', self)
+        self.text_log = ''
         self.file_edit = FileEdit(parent=self)
         self.data_map = Map()
         self.debug()
@@ -35,8 +37,12 @@ class InputLogView(QMainWindow):
         self.main_controller = InputLogController([self.map_controller, self.log_controller])
 
         self.handlers()
-        self.redraw()
         self.update_info()
+        self.log_select()
+
+    def set_log(self, text: str):
+        self.text_log += text
+        self.logText.setText(self.text_log + str(len(self.text_log)))
 
     def debug(self):
         self.data_map.load_map('C:/Users/KosachevIV/PycharmProjects/InputLogs/base.json')
@@ -61,11 +67,31 @@ class InputLogView(QMainWindow):
 
         self.chooseLayerComboBox.activated.connect(self.choose_layer)
         self.startButton.clicked.connect(self.start)
-        self.chooseLogButton.clicked.connect(partial(self.open_window, ChooseLog))
+        self.chooseLogButton.clicked.connect(partial(self.open_window, CreateLog))
         self.owcButton.clicked.connect(partial(self.open_window, OwcEditView))
         self.attachLogButton.clicked.connect(partial(self.open_window, AttachLogView))
         self.logSelectComboBox.activated.connect(self.log_select)
+
+        self.actionTNavigator_inc.triggered.connect(partial(self.export, 'tnav'))
+        self.actionXLSX.triggered.connect(partial(self.export, 'xlsx'))
+        self.actionCSV.triggered.connect(partial(self.export, 'csv'))
+
         # self.saveButton.clicked.connect(self.save_file)
+
+    def export(self, type_file: str = 'csv'):
+        file_path = FileEdit(self).create_file(extension='')
+        if file_path != '':
+            Thread(target=partial(self.__export, type_file, file_path)).start()
+
+    def __export(self, type_file: str, file_path: str):
+        if type_file == 'csv':
+            self.data_map.export_csv(file_path + 'csv')
+        elif type_file == 'xlsx':
+            self.data_map.export_xlsx(file_path + 'xlsx')
+        elif type_file == 'tnav':
+            self.data_map.export_t_nav(file_path + 'inc')
+        else:
+            self.data_map.export_csv(file_path)
 
     def log_select(self):
         self.data_map.change_log_select(self.logSelectComboBox.currentText())
@@ -75,7 +101,7 @@ class InputLogView(QMainWindow):
         if hasattr(self, 'sub_window'):
             self.sub_window.close()
             self.update_info()
-        self.sub_window = window(self.data_map)
+        self.sub_window: QMainWindow = window(self.data_map)
         self.sub_window.show()
 
     def save_file(self):

@@ -166,86 +166,23 @@ class PlotLogController(PlotController):
         self.plot_prepare(None, data_map.max_z)
         self.x, self.y = int(x), int(y)
 
-        if not len(data_map.logs.keys()):
-            return
+        col_interval = data_map.get_column_curve(self.x, self.y)
+        if col_interval:
+            x = [a for b in [x for x, _, _ in col_interval.intervals] for a in b]
+            y = [a for b in [y for _, _, y in col_interval.intervals] for a in b]
+            self.ax.plot(x, y, color='black')
 
-        col_interval, layer = [], []
-        min_axes_x, max_axes_x = 9999, -9999
+            min_axes_x, max_axes_x, pre_max_y = col_interval.min, col_interval.max, 0
 
-        sort_column = sorted(data_map.get_column(self.x, self.y), key=lambda i: i['s'])
+            for x, name, y in col_interval.intervals:
+                max_y, min_y, color = max(y), min(y), ColorName.get_color(name)
+                connect_to_pre_interval = 1 if min_y > pre_max_y else 0
+                draw_bar(self.ax, min_axes_x, min_y - connect_to_pre_interval, size_x=max_axes_x - min_axes_x,
+                         size_y=max_y - min_y + connect_to_pre_interval, color=color, alpha=0.2)
 
-        for name, s, e in [i.values() for i in sort_column]:
-            log = data_map.get_one_log(name)
-            if not log:
-                continue
-
-            min_axes_x, max_axes_x = min(log.min, min_axes_x), max(max_axes_x, log.max)
-            interval = range(int(s), int(e) + 1)
-            if len(interval) > 1:
-                curve = DropRandomPoints(0.95)(np.array(log.x))
-                curve = Stretch.stretch_curve_by_count(curve, len(interval))
-
-                layer.append({name: (curve, interval)})
-                col_interval.append((curve, name, interval))
-
-        if len(col_interval) < 1:
-            return
-
-        col_pre = col_interval[0]
-
-        curve_use_per = 0.2 + random.random() * 0.4
-
-        for i in range(1, len(col_interval)):
-            curve_p, name_p, interval_p = col_pre
-            curve_n, name_n, interval_n = col_interval[i]
-
-            min_len = min(len(interval_p), len(interval_n))
-            start, end = len(interval_p) - int(min_len * curve_use_per), int(min_len * curve_use_per)
-            y_a, y_b = realistic_transition(curve_p[start:], curve_n[:end])
-            col_interval[i - 1] = (list(curve_p[:start]) + y_a, name_p, interval_p)
-            col_pre = col_interval[i] = (y_b + list(curve_n[end:]), name_n, interval_n)
-
-        x = [a for b in [x for x, _, _ in col_interval] for a in b]
-        y = [a for b in [y for _, _, y in col_interval] for a in b]
-        self.ax.plot(x, y, color='black')
-
-        pre_max_y = 0
-        for x, name, y in col_interval:
-            max_y, min_y, color = max(y), min(y), ColorName.get_color(name)
-            connect_to_pre_interval = 1 if min_y > pre_max_y else 0
-
-            draw_bar(self.ax, min_axes_x, min_y - connect_to_pre_interval, size_x=max_axes_x - min_axes_x,
-                     size_y=max_y - min_y+connect_to_pre_interval, color=color, alpha=0.2)
-            pre_max_y = max_y
-
-        print()
-
-        self.ax.set_xlim(min_axes_x, max_axes_x)
-        self.ax.invert_yaxis()
+                pre_max_y = max_y
+            self.ax.set_xlim(min_axes_x, max_axes_x)
+            self.ax.invert_yaxis()
         self.draw()
 
 
-def realistic_transition(y1: [float], y2: [float]) -> ([float], [float]):
-    if len(y1) < 2 or len(y2) < 2:
-        return list(y1), list(y2)
-
-    y1min, y2min, y1max, y2max = min(y1), min(y2), max(y1), max(y2)
-    if y1min == y1max or y2min == y2max:
-        return list(y1), list(y2)
-
-    drop_point_per = 0.1 * (max(y1max, y2max) - min(y1min, y2min)) / max(y1max - y1min, y2max - y2min)
-    save_point_per = 1 - drop_point_per if drop_point_per < 0.5 else 0.5
-    y_a, y_b = list(Stretch.stretch_curve(y1, save_point_per)), list(Stretch.stretch_curve(y2, save_point_per))
-
-    average, start_value = y_b[0] - y_a[-1], y_a[-1]
-    len_dist = len(y1) + len(y2) - len(y_a) - len(y_b) + 1
-
-    step: () = lambda ind, l: average * ((random.random() / 2) * (1 - ind / l) + ind / l)
-    middle = [start_value + step(ind, len_dist) for ind in range(1, len_dist)]
-    y = y_a + middle + y_b
-
-    offset_value = int(len(y) / 2)
-
-    y_a = Stretch.stretch_curve_by_count(y[0:offset_value], len(y1))
-    y_b = Stretch.stretch_curve_by_count(y[offset_value:], len(y2))
-    return list(y_a), list(y_b)

@@ -101,36 +101,6 @@
        <property name="sizeConstraint">
         <enum>QLayout::SetMinimumSize</enum>
        </property>
-       <item row="0" column="3">
-        <widget class="QPushButton" name="attachLogButton">
-         <property name="enabled">
-          <bool>true</bool>
-         </property>
-         <property name="text">
-          <string>Attach log to layer</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="2">
-        <widget class="QPushButton" name="owcButton">
-         <property name="enabled">
-          <bool>true</bool>
-         </property>
-         <property name="text">
-          <string>OWC</string>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="0">
-        <widget class="QPushButton" name="startButton">
-         <property name="enabled">
-          <bool>true</bool>
-         </property>
-         <property name="text">
-          <string>Start</string>
-         </property>
-        </widget>
-       </item>
        <item row="0" column="0">
         <widget class="QComboBox" name="chooseLayerComboBox"/>
        </item>
@@ -144,7 +114,27 @@
          </property>
         </widget>
        </item>
-       <item row="0" column="1">
+       <item row="0" column="3">
+        <widget class="QPushButton" name="owcButton">
+         <property name="enabled">
+          <bool>true</bool>
+         </property>
+         <property name="text">
+          <string>OWC</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="4">
+        <widget class="QPushButton" name="attachLogButton">
+         <property name="enabled">
+          <bool>true</bool>
+         </property>
+         <property name="text">
+          <string>Attach log to layer</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="2">
         <widget class="QPushButton" name="chooseLogButton">
          <property name="enabled">
           <bool>true</bool>
@@ -153,6 +143,19 @@
           <string>Add log</string>
          </property>
         </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QPushButton" name="startButton">
+         <property name="enabled">
+          <bool>true</bool>
+         </property>
+         <property name="text">
+          <string>Start</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="2" rowspan="2" colspan="3">
+        <widget class="QTextEdit" name="logText"/>
        </item>
       </layout>
      </widget>
@@ -175,7 +178,16 @@
     <addaction name="openFileAction"/>
     <addaction name="saveFileAction"/>
    </widget>
+   <widget class="QMenu" name="menu_2">
+    <property name="title">
+     <string>Экспорт</string>
+    </property>
+    <addaction name="actionCSV"/>
+    <addaction name="actionXLSX"/>
+    <addaction name="actionTNavigator_inc"/>
+   </widget>
    <addaction name="menu"/>
+   <addaction name="menu_2"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="openFileAction">
@@ -186,6 +198,21 @@
   <action name="saveFileAction">
    <property name="text">
     <string>Сохранить</string>
+   </property>
+  </action>
+  <action name="actionCSV">
+   <property name="text">
+    <string>CSV</string>
+   </property>
+  </action>
+  <action name="actionXLSX">
+   <property name="text">
+    <string>XLSX</string>
+   </property>
+  </action>
+  <action name="actionTNavigator_inc">
+   <property name="text">
+    <string>TNavigator (.inc)</string>
    </property>
   </action>
  </widget>

@@ -47,7 +47,7 @@ class AttachLogView(QMainWindow):
 
     def create_frames_layers(self):
         widgets = []
-        for name in self.data_map.main_names():
+        for name in self.data_map.main_body_names_owc():
             layer_check = QCheckBox()
             layer_check.setMaximumWidth(30)
             layer_check.clicked.connect(partial(self.add_layer, layer_check.checkState, name))

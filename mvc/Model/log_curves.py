@@ -1,3 +1,6 @@
+import re
+from typing import Optional, Callable
+
 import numpy as np
 from scipy.interpolate import interp1d
 
@@ -6,7 +9,7 @@ from utils.json_in_out import JsonInOut
 
 
 class Log(JsonInOut):
-    __slots__ = '_min', '_max', 'name', 'main', '_x', '_trend', 'f_trend', 'dispersion'
+    __slots__ = '_min', '_max', 'name', 'main', '_x', '_trend', 'f_trend', 'dispersion', 'text_expression'
 
     def __init__(self, data_dict: dict = None, **kwargs):
         self._min = None
@@ -15,6 +18,7 @@ class Log(JsonInOut):
         self.main = True
         self._trend: {str: float} = {'0': 0, '1': 0}
         self._x = []
+        self.text_expression: str = ''
         self.dispersion = 0.85
 
         if data_dict:
@@ -58,8 +62,8 @@ class Log(JsonInOut):
         self._trend.pop(min(nearst, key=lambda i: i[1])[0])
 
     def get_text(self) -> str:
-        return f'{self.name} (min = {self.min}, max = {self.max}) ' \
-               f'{".xlsx" if self._x else ""} {"⚡" if len(self._trend) > 2 else ""}'
+        min_max = {f"(min = {self.min}, max = {self.max})" if self.max or self.min else self.text_expression}
+        return f'{self.name} {min_max} {".xlsx" if self._x else ""} {"⚡" if len(self._trend) > 2 else ""}'
 
     @property
     def min(self):
@@ -85,7 +89,6 @@ class Log(JsonInOut):
 
     @property
     def x(self) -> [float]:
-
         if self._x:
             return self._x
         if self.max is not None and self.min is not None:
@@ -114,3 +117,43 @@ class Log(JsonInOut):
     @x.setter
     def x(self, value):
         self._x = value
+
+
+def expression_array_parser(expression: str, logs_name: [str]) -> Optional[Callable]:
+    for l_n in logs_name:
+        replacement_var = f"c['{l_n}'][int(len(c['{l_n}'])*i/len_x)]"
+        expression = expression.replace('{' + l_n + '}', replacement_var)
+    try:
+        return eval(f'lambda c, i, len_x: {expression}')
+    except SyntaxError:
+        print(expression)
+        return lambda i: None
+
+
+def expression_parser(expression: str) -> Optional[Callable]:
+    for l_n in re.findall(r'[{].*?[}]', expression):
+        expression = expression.replace(l_n, f"c['{l_n[1:l_n.index('|')]}']")
+    try:
+        return eval(f'lambda c: {expression}')
+    except SyntaxError:
+        print(expression, 'SyntaxError')
+        return lambda i: None
+
+
+class ExpressionLog:
+    __slots__ = 'x'
+
+    def __init__(self, logs: {str: [float]}, text_expression: str):
+        self.x = [None for _ in range(500)]
+        expression = expression_array_parser(text_expression, [str(k) for k in logs])
+        len_x = len(self.x)
+        try:
+            self.x = [expression(logs, i, len_x) for i in range(len(self.x))]
+        except:
+            pass
+
+    def __call__(self, *args, **kwargs) -> bool:
+        return self.valid_expression()
+
+    def valid_expression(self) -> bool:
+        return bool(not self.x.__contains__(None))
