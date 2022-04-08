@@ -7,6 +7,7 @@ def clear_layout(layout: QGridLayout):
 
 
 def create_frame(layout: QGridLayout, widgets: [[QWidget]]):
+    clear_layout(layout)
     for frame_widgets, i in zip(widgets, range(len(widgets))):
         y = QFrame()
         x = QHBoxLayout(y)

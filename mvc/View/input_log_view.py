@@ -1,13 +1,15 @@
+import os
 from functools import partial
 from os import environ
 from threading import Thread
 
 from PyQt5 import uic
-from PyQt5.QtWidgets import QMainWindow, QTextEdit
+from PyQt5.QtWidgets import QMainWindow
 
 from mvc.Controller.plot_controller import PlotController, PlotMapController, PlotLogController
 from mvc.Model.map import Map
 from mvc.View.attach_log_view import AttachLogView
+from mvc.View.create_core_sample_view import CreateCoreSampleView
 from mvc.View.create_log_view import CreateLog
 from mvc.View.owc_edit_view import OwcEditView
 from utils.file import FileEdit
@@ -39,14 +41,17 @@ class InputLogView(QMainWindow):
         self.handlers()
         self.update_info()
         self.log_select()
+        x = Thread(target=partial(CreateCoreSampleView, self.data_map))
+        x.start()
 
     def set_log(self, text: str):
         self.text_log += text
         self.logText.setText(self.text_log + str(len(self.text_log)))
 
     def debug(self):
-        self.data_map.load_map('C:/Users/KosachevIV/PycharmProjects/InputLogs/base.json')
-        self.file_edit.file_used = 'C:/Users/KosachevIV/PycharmProjects/InputLogs/base.json'
+        path = os.environ['project'] + '/base.json'
+        self.data_map.load_map(path)
+        self.file_edit.file_used = path
 
     def update_info(self):
         self.chooseLayerComboBox.clear()
@@ -70,6 +75,7 @@ class InputLogView(QMainWindow):
         self.chooseLogButton.clicked.connect(partial(self.open_window, CreateLog))
         self.owcButton.clicked.connect(partial(self.open_window, OwcEditView))
         self.attachLogButton.clicked.connect(partial(self.open_window, AttachLogView))
+        self.createCoreSampleButton.clicked.connect(partial(self.open_window, CreateCoreSampleView))
         self.logSelectComboBox.activated.connect(self.log_select)
 
         self.actionTNavigator_inc.triggered.connect(partial(self.export, 'tnav'))
@@ -80,7 +86,7 @@ class InputLogView(QMainWindow):
 
     def export(self, type_file: str = 'csv'):
         file_path = FileEdit(self).create_file(extension='')
-        if file_path != '':
+        if file_path:
             Thread(target=partial(self.__export, type_file, file_path)).start()
 
     def __export(self, type_file: str, file_path: str):

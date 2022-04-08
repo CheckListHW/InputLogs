@@ -167,6 +167,7 @@ class PlotLogController(PlotController):
         self.x, self.y = int(x), int(y)
 
         col_interval = data_map.get_column_curve(self.x, self.y)
+
         if col_interval:
             x = [a for b in [x for x, _, _ in col_interval.intervals] for a in b]
             y = [a for b in [y for _, _, y in col_interval.intervals] for a in b]
@@ -181,6 +182,7 @@ class PlotLogController(PlotController):
                          size_y=max_y - min_y + connect_to_pre_interval, color=color, alpha=0.2)
 
                 pre_max_y = max_y
+
             self.ax.set_xlim(min_axes_x, max_axes_x)
             self.ax.invert_yaxis()
         self.draw()

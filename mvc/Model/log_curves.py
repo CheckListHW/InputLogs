@@ -126,7 +126,6 @@ def expression_array_parser(expression: str, logs_name: [str]) -> Optional[Calla
     try:
         return eval(f'lambda c, i, len_x: {expression}')
     except SyntaxError:
-        print(expression)
         return lambda i: None
 
 
@@ -136,8 +135,7 @@ def expression_parser(expression: str) -> Optional[Callable]:
     try:
         return eval(f'lambda c: {expression}')
     except SyntaxError:
-        print(expression, 'SyntaxError')
-        return lambda i: None
+        return None
 
 
 class ExpressionLog:
@@ -157,3 +155,23 @@ class ExpressionLog:
 
     def valid_expression(self) -> bool:
         return bool(not self.x.__contains__(None))
+
+
+def sort_expression_logs(logs: [Log]) -> [(str, str)]:
+    expressions = [(log.name, log.text_expression, log) for log in logs]
+
+    cut_excess: () = lambda i: i[:i.index('|')].replace(' ', '').replace('{', '').replace('}', '')
+    extract_vars: () = lambda i: re.findall(r'[{].*?[}]', i)
+
+    unsorted_expressions = [(cut_excess(exp[0]), [cut_excess(i) for i in extract_vars(exp[1])], exp[2]) for exp in expressions]
+    old, sorted_expressions = [], []
+
+    while unsorted_expressions:
+        old = sorted_expressions.copy()
+        for i in unsorted_expressions:
+            if not [uns_exp for uns_exp in i[1] if uns_exp in [uns_exp[0] for uns_exp in unsorted_expressions]]:
+                sorted_expressions.append(i)
+        unsorted_expressions = [i for i in unsorted_expressions if i not in sorted_expressions]
+        if old == sorted_expressions:
+            return expressions
+    return [log for _, _, log in sorted_expressions]

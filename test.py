@@ -1,7 +1,13 @@
+import os
+
 from mvc.Model.map import Map
 
+os.environ['project'] = os.getcwd()
+
 if __name__ == '__main__':
-    x = 'nigga'.replace('x', 'g')
-    print(x)
-    # n = Map(path='C:/Users/KosachevIV/PycharmProjects/InputLogs/base.json')
-    # n.export_t_nav('C:/Users/KosachevIV/PycharmProjects/InputLogs/export_data/PORO.inc')
+    print('start')
+    data_map = Map()
+    data_map.load_map('base.json')
+    data_map.attach_logs.values()
+    data_map.export()
+    print('finish_main')

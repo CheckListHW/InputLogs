@@ -52,8 +52,6 @@ class OwcEditView(QMainWindow):
         create_frame(self.owcInfoGridLayout, widgets)
 
     def owc_input_update(self):
-        clear_layout(self.owcInputGridLayout)
-
         names = [name for name in self.data_map.body_names if name[:name.index('|')] == self.main_layer_name]
         widgets = []
         for name in names:

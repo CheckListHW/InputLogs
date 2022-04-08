@@ -31,7 +31,6 @@ class AttachLogView(QMainWindow):
         self.create_frames_info()
 
     def create_frames_info(self):
-        clear_layout(self.infoGridLayout)
         widgets, names = [], []
 
         for lay_name, log_name in self.data_map.attach_list():
@@ -82,7 +81,5 @@ class AttachLogView(QMainWindow):
         self.create_frames_info()
 
     def update(self):
-        clear_layout(self.logsGridLayout)
-        clear_layout(self.layersGridLayout)
         self.create_frames_logs()
         self.create_frames_layers()
