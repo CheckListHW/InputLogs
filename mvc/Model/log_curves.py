@@ -1,6 +1,7 @@
 import re
 from typing import Optional, Callable
 
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import interp1d
 
@@ -62,8 +63,10 @@ class Log(JsonInOut):
         self._trend.pop(min(nearst, key=lambda i: i[1])[0])
 
     def get_text(self) -> str:
-        min_max = {f"(min = {self.min}, max = {self.max})" if self.max or self.min else self.text_expression}
-        return f'{self.name} {min_max} {".xlsx" if self._x else ""} {"⚡" if len(self._trend) > 2 else ""}'
+        min_max = (f"min = {self.min}, max = {self.max}" if self.max or self.min else self.text_expression)
+        return f'{self.name} \n{min_max} ' \
+               f'{".xlsx" if self._x and self.text_expression == "" else ""} ' \
+               f'{"⚡" if len(self._trend) > 2 else ""}'
 
     @property
     def min(self):
@@ -101,14 +104,14 @@ class Log(JsonInOut):
         self._x = value
 
     def trend_x(self):
-        a, b, avg, des = self.min, self.max, (self.max + self.min) / 2, self.dispersion
+        a, b, avg, des = self.min, self.max, abs(self.max - self.min) / 2, self.dispersion
 
         f_trend = self.f_trend_init()
         f_rand: () = lambda v: np.random.uniform(a + (v - a) * des, b - (b - v) * des)
         f_offset: () = lambda i, y1: y1 + avg * ceil(f_trend(i))
         f_y_limit: () = lambda y: y if a <= y <= b else f_y_limit(a + a - y) if a > y else f_y_limit(b - (y - b))
 
-        y, len_y = [avg], 500
+        y, len_y = [(self.min + self.max)/2], 500
         for _ in range(len_y - 1):
             y.append(f_rand(y[-1]))
 
@@ -163,7 +166,8 @@ def sort_expression_logs(logs: [Log]) -> [(str, str)]:
     cut_excess: () = lambda i: i[:i.index('|')].replace(' ', '').replace('{', '').replace('}', '')
     extract_vars: () = lambda i: re.findall(r'[{].*?[}]', i)
 
-    unsorted_expressions = [(cut_excess(exp[0]), [cut_excess(i) for i in extract_vars(exp[1])], exp[2]) for exp in expressions]
+    unsorted_expressions = [(cut_excess(exp[0]), [cut_excess(i) for i in extract_vars(exp[1])], exp[2]) for exp in
+                            expressions]
     old, sorted_expressions = [], []
 
     while unsorted_expressions:

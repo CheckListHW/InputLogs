@@ -1,11 +1,14 @@
 import os
+import time
 from functools import partial
 from os import environ
 from threading import Thread
 
 from PyQt5 import uic
-from PyQt5.QtWidgets import QMainWindow
+from PyQt5.QtCore import QThread, pyqtSlot
+from PyQt5.QtWidgets import QMainWindow, QPushButton, QTextEdit
 
+from utils.log_file import read_log
 from mvc.Controller.plot_controller import PlotController, PlotMapController, PlotLogController
 from mvc.Model.map import Map
 from mvc.View.attach_log_view import AttachLogView
@@ -43,10 +46,22 @@ class InputLogView(QMainWindow):
         self.log_select()
         x = Thread(target=partial(CreateCoreSampleView, self.data_map))
         x.start()
+        Thread(target=self.update_log).start()
+
+    def update_log(self):
+        x = QPushButton()
+        x.clicked.connect(self.__set_log)
+        while self.isVisible():
+            time.sleep(3)
+            x.click()
+
+    def __set_log(self):
+        text = str(read_log())
+        if text != str(self.logText.toPlainText()):
+            self.set_log(text)
 
     def set_log(self, text: str):
-        self.text_log += text
-        self.logText.setText(self.text_log + str(len(self.text_log)))
+        self.logText.setText(text)
 
     def debug(self):
         path = os.environ['project'] + '/base.json'
@@ -57,11 +72,11 @@ class InputLogView(QMainWindow):
         self.chooseLayerComboBox.clear()
         self.chooseLayerComboBox.addItem('All')
 
-        for name in self.data_map.body_names:
+        for name in sorted(self.data_map.body_names):
             self.chooseLayerComboBox.addItem(name)
 
         self.logSelectComboBox.clear()
-        for log_name in self.data_map.main_logs_name():
+        for log_name in sorted(self.data_map.main_logs_name()):
             self.logSelectComboBox.addItem(log_name)
 
         self.redraw()
@@ -91,13 +106,13 @@ class InputLogView(QMainWindow):
 
     def __export(self, type_file: str, file_path: str):
         if type_file == 'csv':
-            self.data_map.export_csv(file_path + 'csv')
+            self.data_map.export.to_csv(file_path + 'csv')
         elif type_file == 'xlsx':
-            self.data_map.export_xlsx(file_path + 'xlsx')
+            self.data_map.export.to_xlsx(file_path + 'xlsx')
         elif type_file == 'tnav':
-            self.data_map.export_t_nav(file_path + 'inc')
+            self.data_map.export.to_t_nav(file_path + 'inc')
         else:
-            self.data_map.export_csv(file_path)
+            self.data_map.export.to_csv(file_path)
 
     def log_select(self):
         self.data_map.change_log_select(self.logSelectComboBox.currentText())

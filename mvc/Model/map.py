@@ -1,5 +1,4 @@
 import random
-import re
 from functools import partial
 from threading import Thread
 from typing import Union, Optional
@@ -7,6 +6,8 @@ from typing import Union, Optional
 import numpy as np
 import pandas as pd
 
+from utils.a_thread import AThread
+from utils.log_file import print_log
 from mvc.Model.log_curves import Log, expression_parser, sort_expression_logs
 from utils.file import dict_from_json
 from utils.gisaug.augmentations import DropRandomPoints, Stretch
@@ -78,21 +79,23 @@ class ColumnIntervals:
         self.intervals.append(value)
 
 
-class Map:
+class MapProperty:
     __slots__ = 'columns', 'body_names', 'attach_logs', '_visible_names', 'core_samples', \
-                'interval_data', 'max_x', 'max_y', 'max_z', 'path', 'owc', 'all_logs'
+                'interval_data', 'max_x', 'max_y', 'max_z', 'path', 'owc', 'all_logs', 'export'
 
-    def __init__(self, path: str = None):
+    def __init__(self, path: str = None, data: dict = None):
         self.columns, self.interval_data = {}, {}
         self._visible_names, self.body_names, self.all_logs = [], [], []
         self.max_x, self.max_y, self.max_z = 0, 0, 0
         self.attach_logs, self.owc = {}, {}  # {name(str): [Log]}, {name(str): float}
-
         self.core_samples: [CoreSample] = []
 
         self.path = path
+
         if path:
-            self.__load_map(path)
+            data = dict_from_json(path)
+        if data:
+            self.__load_map(data)
 
     @property
     def visible_names(self) -> [str]:
@@ -102,6 +105,49 @@ class Map:
     def visible_names(self, value: [str]):
         self._visible_names = value
 
+    def load_map(self, path: str):
+        self.__init__(path)
+
+    def __load_map(self, data: dict):
+        self.interval_data = data
+        if self.interval_data.get('all_logs'):
+            self.all_logs = [Log(data_dict=log) for log in data['all_logs']]
+        if self.interval_data.get('owc'):
+            self.owc = data['owc']
+        if self.interval_data.get('core_samples'):
+            self.core_samples = data['core_samples']
+
+        if self.interval_data.get('attach_logs'):
+            self.attach_logs = {
+                k: [self.get_logs_by_name(log) for log in v if self.get_logs_by_name(log) is not None]
+                for k, v in data['attach_logs'].items()}
+
+        self.body_names = []
+        for b_name in [k for k in data.keys() if k not in self.__slots__]:
+            body_name = last_char_is(b_name, '|')
+            data[body_name] = data.pop(b_name)
+            self.body_names.append(body_name)
+            for x, y in [(x1, y1) for x1 in data[body_name] for y1 in data[body_name][x1]]:
+                self.max_x, self.max_y = max(self.max_x, int(x)), max(self.max_y, int(y))
+
+                self.max_z = max([s_e['e'] for s_e in data[body_name][x][y]] + [self.max_z])
+
+        self._visible_names = self.body_names.copy()
+
+    def save(self):
+        self.interval_data['all_logs'] = [log.get_as_dict() for log in self.all_logs]
+        self.interval_data['attach_logs'] = {k: [log.name for log in logs] for k, logs in self.attach_logs.items()}
+        self.interval_data['owc'] = self.owc
+        self.interval_data['core_samples'] = self.core_samples
+        return self.interval_data
+
+    def visible_owc_names(self):
+        return [a for b in [[k + 'O|', k + 'W|'] for k in self.owc.keys() if k in self._visible_names] for a in b]
+
+    def get_logs_by_name(self, name: str) -> Optional[Log]:
+        logs = [l for l in self.all_logs if l.name == name]
+        return None if len(logs) == 0 else logs[0]
+
     def add_core_sample(self, core_sample: CoreSample):
         name, log_name, lithology_name, percent, null_value = core_sample
         self.core_samples.append((name, log_name, lithology_name, percent, null_value))
@@ -109,9 +155,6 @@ class Map:
 
     def pop_core_sample(self, core_sample: CoreSample):
         self.core_samples = [c_s for c_s in self.core_samples if c_s != core_sample]
-
-    def visible_owc_names(self):
-        return [a for b in [[k + 'O|', k + 'W|'] for k in self.owc.keys() if k in self._visible_names] for a in b]
 
     def sub_logs(self, log_name: str) -> [Log]:
         return [log for log in self.all_logs if cut_along(log.name, '.') == cut_along(log_name, '.')]
@@ -132,10 +175,6 @@ class Map:
 
     def detach_log_to_layer(self, log_name: str, lay_name: str):
         self.attach_logs[lay_name] = list(set(self.get_logs(lay_name)) - set(self.sub_logs(log_name)))
-
-    def get_logs_by_name(self, name: str) -> Optional[Log]:
-        logs = [l for l in self.all_logs if l.name == name]
-        return None if len(logs) == 0 else logs[0]
 
     def logs_without_sub(self) -> [Log]:
         return [l for l in self.all_logs if not l.name.__contains__('.')]
@@ -191,33 +230,6 @@ class Map:
         # for lay_name in list(self.logs.keys()):
         #     self.logs[lay_name] = [log for log in self.logs[lay_name] if log in self.all_logs]
 
-    def load_map(self, path: str):
-        self.__init__(path)
-
-    def __load_map(self, path: str):
-        self.interval_data = data = dict_from_json(path)
-        if self.interval_data.get('all_logs'):
-            self.all_logs = [Log(data_dict=log) for log in data['all_logs']]
-        if self.interval_data.get('owc'):
-            self.owc = data['owc']
-        if self.interval_data.get('core_samples'):
-            self.core_samples = data['core_samples']
-
-        if self.interval_data.get('attach_logs'):
-            self.attach_logs = {k: [self.get_logs_by_name(log) for log in v if self.get_logs_by_name(log) is not None]
-                                for k, v in data['attach_logs'].items()}
-
-        self.body_names = []
-        for b_name in [k for k in data.keys() if k not in self.__slots__]:
-            body_name = last_char_is(b_name, '|')
-            data[body_name] = data.pop(b_name)
-            self.body_names.append(body_name)
-            for x, y in [(x1, y1) for x1 in data[body_name] for y1 in data[body_name][x1]]:
-                self.max_x, self.max_y = max(self.max_x, int(x)), max(self.max_y, int(y))
-                self.max_z = max([s_e['e'] for s_e in data[body_name][x][y]] + [self.max_z])
-
-        self._visible_names = self.body_names.copy()
-
     def get_logs(self, name: str) -> []:
         return [] if self.attach_logs.get(name) is None else self.attach_logs.get(name)
 
@@ -259,13 +271,6 @@ class Map:
         except KeyError or IndexError:
             return []
 
-    def save(self):
-        self.interval_data['all_logs'] = [log.get_as_dict() for log in self.all_logs]
-        self.interval_data['attach_logs'] = {k: [log.name for log in logs] for k, logs in self.attach_logs.items()}
-        self.interval_data['owc'] = self.owc
-        self.interval_data['core_samples'] = self.core_samples
-        return self.interval_data
-
     def get_column_curve(self, x: int, y: int) -> Optional[ColumnIntervals]:
         if not len(self.attach_logs.keys()):
             return None
@@ -289,7 +294,7 @@ class Map:
         if not col_intervals.count:
             return None
 
-        col_pre, curve_use_per = col_intervals[0], 0.2 + random.random() * 0.4
+        col_pre, curve_use_per = col_intervals[0], 0.1 + random.random() * 0.05
 
         for i in range(1, col_intervals.count):
             curve_p, name_p, interval_p = col_pre
@@ -302,33 +307,56 @@ class Map:
 
         return col_intervals
 
-    def export_xlsx(self, path: str):
-        print('start')
-        Thread(target=partial(self.__export_xlsx, path)).start()
 
-    def __export_xlsx(self, path: str):
+class Map(MapProperty):
+    __slots__ = 'columns', 'body_names', 'attach_logs', '_visible_names', 'core_samples', \
+                'interval_data', 'max_x', 'max_y', 'max_z', 'path', 'owc', 'all_logs', 'export'
+
+    def __init__(self, path: str = None, data: dict = None):
+        super(Map, self).__init__(path, data)
+
+        self.export = ExportLogs(self)
+
+
+class ExportLogs:
+    def __init__(self, data_map: Map):
+        self.data_map = data_map
+        self.export_threads = []
+
+    def export_on_thread(self, export_method: callable, path: str):
+        export_thread = AThread()
+        export_thread.finished.connect(lambda: print_log('Finish export Excel'))
+        export_thread.callback = partial(export_method, path)
+        export_thread.start()
+        self.export_threads.append(export_thread)
+
+    def to_xlsx(self, path: str):
+        self.export_on_thread(self.__to_xlsx, path)
+
+    def __to_xlsx(self, path: str):
         save_to_excel(self.export(), path)
 
-    def export_csv(self, path: str):
-        print('start')
-        Thread(target=partial(self.__export_csv, path)).start()
+    def to_csv(self, path: str):
+        self.export_on_thread(self.__to_csv, path)
 
-    def __export_csv(self, path: str):
+    def __to_csv(self, path: str):
         save_to_csv(self.export(), path)
 
-    def export_t_nav(self, path: str):
-        print('start')
-        Thread(target=partial(self.__export_t_nav, path)).start()
+    def to_t_nav(self, path: str):
+        self.export_on_thread(self.__to_t_nav, path)
 
-    def __export_t_nav(self, path: str):
+    def __to_t_nav(self, path: str):
         save_to_t_nav(self.export(), path)
 
     def export(self):
+        print_log('Start transform data')
+        data_map = MapProperty(data=self.data_map.save())
+
         data = {}
-        for log_name in self.main_logs_name_non_expression():
-            self.change_log_select(log_name)
-            for x, y in [(x1, y1) for x1 in range(self.max_x + 1) for y1 in range(self.max_y + 1)]:
-                column = self.get_column_curve(x, y)
+        for log_name in data_map.main_logs_name_non_expression():
+            data_map.change_log_select(log_name)
+            for x, y in [(x1, y1) for x1 in range(data_map.max_x + 1) for y1 in range(data_map.max_y + 1)]:
+                column = data_map.get_column_curve(x, y)
                 for x1, n, y1 in (column.intervals if column else []):
                     for i in range(len(x1)):
                         ceil_name = f'{x}-{y}-{y1[i]}'
@@ -336,10 +364,10 @@ class Map:
                             data[ceil_name] = {'i': x, 'j': y, 'index': y1[i], 'Lithology': n}
                         data[ceil_name][log_name] = x1[i]
 
-        data = add_log_expression_in_export(data, self.attach_logs)
-        data = add_log_sample_in_export(data, self.core_samples)
+        data = add_log_expression_in_export(data, data_map.attach_logs)
         data = edit_lithology_name_in_data(data)
-        print('end data prepare')
+        data = add_log_sample_in_export(data, data_map.core_samples)
+        print_log('Data ready')
         return data
 
 
@@ -356,6 +384,7 @@ def add_log_expression_in_export(data: dict, logs: {str: [Log]}) -> dict:
 
     sorted_expression_logs = sort_expression_logs(expression_logs)
 
+    texts_expressions = []
     for lay_name, v in logs.items():
         for log in v:
             if expression_parser(log.text_expression) is None:
@@ -364,6 +393,7 @@ def add_log_expression_in_export(data: dict, logs: {str: [Log]}) -> dict:
             log_name = log.name
             expressions[log_name] = {} if not expressions.get(log_name) else expressions[log_name]
             expressions[log_name][lay_name] = expression_parser(log.text_expression)
+            texts_expressions.append(log.text_expression)
 
     for log in sorted_expression_logs:
         log_name_expression = log.name
@@ -372,20 +402,15 @@ def add_log_expression_in_export(data: dict, logs: {str: [Log]}) -> dict:
         for k, v in data.items():
             try:
                 if exps.get(data[k]['Lithology']):
-                    if short_log_name_expression not in ['Vsh']:
-                        print('----')
-                        print(short_log_name_expression, exps[data[k]['Lithology']](v))
-                        print(data[k])
                     data[k][short_log_name_expression] = exps[data[k]['Lithology']](v)
-                    if short_log_name_expression not in ['Vsh']:
-                        print(data[k])
-                        print('----')
-                        breakpoint()
                 if data[k].get(short_log_name_expression) is None:
                     data[k][short_log_name_expression] = -9999
             except KeyError or AttributeError:
-                print(log_name_expression)
-                print(v)
+                print_log(log_name_expression)
+                print_log('')
+                print_log(str(v))
+                print_log('')
+                print_log(str([log.name for log in sorted_expression_logs]))
                 breakpoint()
     return data
 
@@ -410,25 +435,35 @@ def prepare_dataframe_to_save(data: dict) -> pd.DataFrame:
 
 
 def save_to_t_nav(data: [], path: str):
+    print_log('Start save TNavigator(.inc)')
     data_str = ''
-    df = prepare_dataframe_to_save(data).drop(['i', 'j', 'index', 'Lithology'], axis=1)
+    df = prepare_dataframe_to_save(data).sort_values(by=['index', 'j']).drop(['i', 'j', 'index', 'Lithology'], axis=1)
     for data_name, column in df.items():
         data_str += f'{data_name} '
         for value, i in zip(column, range(len(column))):
             if i % 7 == 0:
                 data_str += '\n'
-            data_str += f"1*{round(value, 5)} "
+            try:
+                value = round(float(value), 5)
+            except:
+                pass
+            data_str += f"1*{value} "
         data_str += '/ \n'
 
     file = open(path, 'w+')
     file.write(data_str)
     file.close()
+    print_log('Export to TNavigator (.inc) is finish save to:' + path)
+    print_log(f'Numer of ceil: {len(df)}')
 
 
 def save_to_excel(data: [], path: str):
+    print_log('Start save Excel (.xlsx)')
     prepare_dataframe_to_save(data).to_excel(path, sheet_name='all')
-    print('end')
+    print_log('Export to Excel(.xlsx) is finish save to:' + path)
 
 
 def save_to_csv(data: [], path: str):
+    print_log('Start save .csv')
     prepare_dataframe_to_save(data).to_csv(path)
+    print_log('Export to .csv is finish save to:' + path)
