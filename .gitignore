@@ -1,5 +1,9 @@
 /logs/
 /dist/
 /output/
+/venv/
+/export_data/
+/data_files/
 *.json
 *.xlsx
+*.spec
