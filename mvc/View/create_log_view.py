@@ -17,7 +17,6 @@ class CreateLog(QMainWindow):
     def __init__(self, data_map: Map):
         super(CreateLog, self).__init__()
         uic.loadUi(environ['project'] + '/ui/create_log_window.ui', self)
-        print('s')
         self.data_map = data_map
         self.oil_water_name = ''
         self.handlers()

@@ -1,13 +1,13 @@
 import random
 from functools import partial
-from threading import Thread
 from typing import Union, Optional
 
 import numpy as np
 import pandas as pd
 
 from utils.a_thread import AThread
-from utils.log_file import print_log
+from utils.is_number import is_number
+from utils.log.log_file import print_log
 from mvc.Model.log_curves import Log, expression_parser, sort_expression_logs
 from utils.file import dict_from_json
 from utils.gisaug.augmentations import DropRandomPoints, Stretch
@@ -15,7 +15,7 @@ from utils.realistic_transition import realistic_transition
 
 interval = [[float], str, [float]]
 # [('core_sample_name', 'lithology_name', 'log_name', 'percent_safety(in 0...1)'  , 'null_val')]
-CoreSample = (str, str, str, float, str)
+CoreSample = (str, str, str, str)
 
 
 def cut_along(name: str, symbol: str) -> str:
@@ -80,8 +80,9 @@ class ColumnIntervals:
 
 
 class MapProperty:
-    __slots__ = 'columns', 'body_names', 'attach_logs', '_visible_names', 'core_samples', \
-                'interval_data', 'max_x', 'max_y', 'max_z', 'path', 'owc', 'all_logs', 'export'
+    __slots__ = 'columns', 'body_names', 'attach_logs', '_visible_names', 'core_samples', 'settings', \
+                'interval_data', 'max_x', 'max_y', 'max_z', 'path', 'owc', \
+                'all_logs', 'export', 'percent_safe_core', 'initial_depth', 'step_depth'
 
     def __init__(self, path: str = None, data: dict = None):
         self.columns, self.interval_data = {}, {}
@@ -89,6 +90,9 @@ class MapProperty:
         self.max_x, self.max_y, self.max_z = 0, 0, 0
         self.attach_logs, self.owc = {}, {}  # {name(str): [Log]}, {name(str): float}
         self.core_samples: [CoreSample] = []
+        self.percent_safe_core = 0.3
+        self.step_depth = 0.4
+        self.initial_depth = 2000
 
         self.path = path
 
@@ -110,12 +114,18 @@ class MapProperty:
 
     def __load_map(self, data: dict):
         self.interval_data = data
-        if self.interval_data.get('all_logs'):
+        if data.get('settings'):
+            self.percent_safe_core = data['settings']['percent_safe_core']
+            if data['settings'].get('initial_depth'):
+                self.initial_depth = data['settings']['initial_depth']
+            if data['settings'].get('step_depth'):
+                self.step_depth = data['settings']['step_depth']
+        if data.get('all_logs'):
             self.all_logs = [Log(data_dict=log) for log in data['all_logs']]
-        if self.interval_data.get('owc'):
+        if data.get('owc'):
             self.owc = data['owc']
-        if self.interval_data.get('core_samples'):
-            self.core_samples = data['core_samples']
+        if data.get('core_samples'):
+            self.core_samples = [tuple(i) for i in data['core_samples']]
 
         if self.interval_data.get('attach_logs'):
             self.attach_logs = {
@@ -129,7 +139,6 @@ class MapProperty:
             self.body_names.append(body_name)
             for x, y in [(x1, y1) for x1 in data[body_name] for y1 in data[body_name][x1]]:
                 self.max_x, self.max_y = max(self.max_x, int(x)), max(self.max_y, int(y))
-
                 self.max_z = max([s_e['e'] for s_e in data[body_name][x][y]] + [self.max_z])
 
         self._visible_names = self.body_names.copy()
@@ -139,6 +148,10 @@ class MapProperty:
         self.interval_data['attach_logs'] = {k: [log.name for log in logs] for k, logs in self.attach_logs.items()}
         self.interval_data['owc'] = self.owc
         self.interval_data['core_samples'] = self.core_samples
+        self.interval_data['settings'] = {'percent_safe_core': self.percent_safe_core,
+                                          'step_depth': self.step_depth,
+                                          'initial_depth': self.initial_depth,
+                                          }
         return self.interval_data
 
     def visible_owc_names(self):
@@ -149,8 +162,8 @@ class MapProperty:
         return None if len(logs) == 0 else logs[0]
 
     def add_core_sample(self, core_sample: CoreSample):
-        name, log_name, lithology_name, percent, null_value = core_sample
-        self.core_samples.append((name, log_name, lithology_name, percent, null_value))
+        name, log_name, lithology_name, null_value = core_sample
+        self.core_samples.append((name, log_name, lithology_name, null_value))
         self.core_samples = list(set(self.core_samples))
 
     def pop_core_sample(self, core_sample: CoreSample):
@@ -276,8 +289,8 @@ class MapProperty:
             return None
 
         col_intervals = ColumnIntervals()
-
         sort_column = sorted(self.get_column(x, y), key=lambda i: i['s'])
+
         for name, s, e in [i.values() for i in sort_column]:
             log = self.get_one_log(name)
             if not log:
@@ -309,8 +322,8 @@ class MapProperty:
 
 
 class Map(MapProperty):
-    __slots__ = 'columns', 'body_names', 'attach_logs', '_visible_names', 'core_samples', \
-                'interval_data', 'max_x', 'max_y', 'max_z', 'path', 'owc', 'all_logs', 'export'
+    __slots__ = 'columns', 'body_names', 'attach_logs', '_visible_names', 'core_samples', 'settings', \
+                'interval_data', 'max_x', 'max_y', 'max_z', 'path', 'owc', 'all_logs', 'export', 'percent_safe_core'
 
     def __init__(self, path: str = None, data: dict = None):
         super(Map, self).__init__(path, data)
@@ -361,12 +374,13 @@ class ExportLogs:
                     for i in range(len(x1)):
                         ceil_name = f'{x}-{y}-{y1[i]}'
                         if not data.get(ceil_name):
-                            data[ceil_name] = {'i': x, 'j': y, 'index': y1[i], 'Lithology': n}
+                            index = y1[i] * self.data_map.step_depth + self.data_map.initial_depth
+                            data[ceil_name] = {'i': x + 1, 'j': y + 1, 'index': index, 'Lithology': n}
                         data[ceil_name][log_name] = x1[i]
 
         data = add_log_expression_in_export(data, data_map.attach_logs)
         data = edit_lithology_name_in_data(data)
-        data = add_log_sample_in_export(data, data_map.core_samples)
+        data = add_log_sample_in_export(data, data_map.core_samples, self.data_map.percent_safe_core)
         print_log('Data ready')
         return data
 
@@ -406,24 +420,22 @@ def add_log_expression_in_export(data: dict, logs: {str: [Log]}) -> dict:
                 if data[k].get(short_log_name_expression) is None:
                     data[k][short_log_name_expression] = -9999
             except KeyError or AttributeError:
-                print_log(log_name_expression)
-                print_log('')
-                print_log(str(v))
-                print_log('')
-                print_log(str([log.name for log in sorted_expression_logs]))
-                breakpoint()
+                print_log(f'{log_name_expression} ; {v.keys()} ; {v["Lithology"]}')
+                break
+
     return data
 
 
-def add_log_sample_in_export(data: dict, core_samples: [CoreSample]) -> dict:
+def add_log_sample_in_export(data: dict, core_samples: [CoreSample], percent: float) -> dict:
     for k in data.keys():
-        for name_core_sample, log_name, lithology, percent, null_value in core_samples:
+        check_percent = random.random() > percent
+        for name_core_sample, log_name, lithology, null_value in core_samples:
             data[k][name_core_sample] = null_value
+            if check_percent:
+                continue
             if data[k]['Lithology'] != lithology:
                 continue
             if data[k].get(log_name) is None:
-                continue
-            if random.random() > percent:
                 continue
             data[k][name_core_sample] = data[k][log_name] * ((random.random() - 0.5) / 10 + 1)
     return data

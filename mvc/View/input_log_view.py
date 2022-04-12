@@ -5,10 +5,10 @@ from os import environ
 from threading import Thread
 
 from PyQt5 import uic
-from PyQt5.QtCore import QThread, pyqtSlot
-from PyQt5.QtWidgets import QMainWindow, QPushButton, QTextEdit
+from PyQt5.QtWidgets import QMainWindow, QPushButton
 
-from utils.log_file import read_log
+from mvc.View.setiings_view import SettingsView
+from utils.log.log_file import read_log
 from mvc.Controller.plot_controller import PlotController, PlotMapController, PlotLogController
 from mvc.Model.map import Map
 from mvc.View.attach_log_view import AttachLogView
@@ -57,8 +57,13 @@ class InputLogView(QMainWindow):
 
     def __set_log(self):
         text = str(read_log())
-        if text != str(self.logText.toPlainText()):
-            self.set_log(text)
+        if len(text) > 500:
+            if text[-500:] != str(self.logText.toPlainText())[-500:]:
+                text = text[-500:]
+        else:
+            if text != str(self.logText.toPlainText()):
+                text = text
+        self.set_log(text)
 
     def set_log(self, text: str):
         self.logText.setText(text)
@@ -84,6 +89,7 @@ class InputLogView(QMainWindow):
     def handlers(self):
         self.openFileAction.triggered.connect(self.open_file)
         self.saveFileAction.triggered.connect(self.save_file)
+        self.exportSettingsAction.triggered.connect(partial(self.open_window, SettingsView))
 
         self.chooseLayerComboBox.activated.connect(self.choose_layer)
         self.startButton.clicked.connect(self.start)

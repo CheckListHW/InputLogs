@@ -193,8 +193,15 @@
     <addaction name="actionXLSX"/>
     <addaction name="actionTNavigator_inc"/>
    </widget>
+   <widget class="QMenu" name="menu_3">
+    <property name="title">
+     <string>Настройки</string>
+    </property>
+    <addaction name="exportSettingsAction"/>
+   </widget>
    <addaction name="menu"/>
    <addaction name="menu_2"/>
+   <addaction name="menu_3"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="openFileAction">
@@ -220,6 +227,11 @@
   <action name="actionTNavigator_inc">
    <property name="text">
     <string>TNavigator (.inc)</string>
+   </property>
+  </action>
+  <action name="exportSettingsAction">
+   <property name="text">
+    <string>Экспорт</string>
    </property>
   </action>
  </widget>
