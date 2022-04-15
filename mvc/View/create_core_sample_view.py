@@ -3,9 +3,10 @@ from os import environ
 from typing import Union
 
 from PyQt5 import uic
-from PyQt5.QtWidgets import QMainWindow, QLineEdit, QDoubleSpinBox, QComboBox, QGridLayout, QLabel, QPushButton
+from PyQt5.QtWidgets import QMainWindow, QLineEdit, QDoubleSpinBox, QComboBox, QLabel, QPushButton
 
-from mvc.Model.map import Map, CoreSample
+from mvc.Model.map import Map
+from mvc.Model.map_property import CoreSample
 from utils.create_layout import create_frame
 
 

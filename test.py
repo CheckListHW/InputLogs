@@ -1,12 +1,5 @@
-import sys
-from numbers import Number
-
-from PyQt5.QtWidgets import QApplication
-
-from mvc.View.setiings_view import SettingsView
+from mvc.Model.map import Map
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    w = SettingsView()
-    w.show()
-    sys.exit(app.exec_())
+    data_map = Map(path='C:/Users/KosachevIV/PycharmProjects/InputLogs/base.json')
+    data_map.export.export()

@@ -92,7 +92,6 @@ class InputLogView(QMainWindow):
         self.exportSettingsAction.triggered.connect(partial(self.open_window, SettingsView))
 
         self.chooseLayerComboBox.activated.connect(self.choose_layer)
-        self.startButton.clicked.connect(self.start)
         self.chooseLogButton.clicked.connect(partial(self.open_window, CreateLog))
         self.owcButton.clicked.connect(partial(self.open_window, OwcEditView))
         self.attachLogButton.clicked.connect(partial(self.open_window, AttachLogView))
@@ -102,8 +101,6 @@ class InputLogView(QMainWindow):
         self.actionTNavigator_inc.triggered.connect(partial(self.export, 'tnav'))
         self.actionXLSX.triggered.connect(partial(self.export, 'xlsx'))
         self.actionCSV.triggered.connect(partial(self.export, 'csv'))
-
-        # self.saveButton.clicked.connect(self.save_file)
 
     def export(self, type_file: str = 'csv'):
         file_path = FileEdit(self).create_file(extension='')
@@ -133,9 +130,6 @@ class InputLogView(QMainWindow):
 
     def save_file(self):
         self.file_edit.save_file(self.data_map.save())
-
-    def start(self):
-        print('start')
 
     def open_file(self):
         path = self.file_edit.open_file()

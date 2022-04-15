@@ -3,9 +3,10 @@ from os import environ
 
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QMainWindow, QLabel, QCheckBox, QPushButton, QGridLayout, QWidget, QHBoxLayout, QFrame
+from PyQt5.QtWidgets import QMainWindow, QLabel, QCheckBox, QPushButton, QWidget, QHBoxLayout
 
-from mvc.Model.map import Map, cut_along
+from mvc.Model.map import Map
+from mvc.Model.map_property import cut_along
 from mvc.View.list_scroll_widget import ListScrollWidgets
 from utils.create_layout import create_frame, clear_layout
 

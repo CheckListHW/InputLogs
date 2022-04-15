@@ -3,6 +3,9 @@ from datetime import datetime
 
 from utils.log.clear_logs import clear_logs
 
+if not os.environ.get('project'):
+    os.environ['project'] = os.getcwd()
+
 if not os.path.exists(os.environ['project'] + '/logs'):
     os.mkdir(os.environ['project'] + '/logs')
 
