@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-
+import sys
 from utils.log.clear_logs import clear_logs
 
 if not os.environ.get('project'):

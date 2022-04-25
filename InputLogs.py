@@ -3,6 +3,7 @@ import sys
 from traceback import format_exception
 
 os.environ['project'] = os.getcwd()
+sys.path.append(os.environ['project'])
 
 from PyQt5.QtWidgets import QApplication
 
